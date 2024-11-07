@@ -1,3 +1,4 @@
+import math
 from materialmodeller import CarbonMaterial, ConcreteMaterial, RebarMaterial, Material
 import numpy as np
 
@@ -99,15 +100,255 @@ def section_integrator(e_ok: float, e_uk: float, height: float, material: Concre
 
     z = d_strekk_avg - d_trykk_avg
 
-    return sum_trykk, sum_f_strekk_armering, z
+    return alpha, sum_trykk, sum_f_strekk_armering, z
+
+def objective_function_e_s(
+    e_s,
+    e_c,
+    height,
+    material,
+    as_bot,
+    d_bot,
+    a_pre_bot,
+    d_pre_bot,
+    as_top,
+    d_top,
+    a_pre_top,
+    d_pre_top,
+    creep_eff,
+):
+    """
+    Metode som kaller "calc_inner_state" og returnerer riktig versjon av M / M.
+    """
+
+    # Kaller funksjonen calc_inner_state for å beregne indre tilstand
+    alpha, f_s, f_b, z = section_integrator(
+        e_s, e_c, height, material, as_bot, as_top, d_bot, d_top,
+        a_pre_bot, a_pre_top, d_pre_bot, d_pre_top, creep_eff
+    )
+
+    # Beregner momenter
+    mom_s = f_s * z
+    mom_b = f_b * z
+
+    # Returnerer objektfunksjonsverdien og andre relevante verdier
+    return mom_s / max(mom_b, 1e-6) - 1.0, alpha, mom_s, mom_b, z
 
 
-def integration_iterator(height_vector: ndarray, width_vector: ndarray, 
-                         rebar_vector: ndarray, d_vector: ndarray) -> float:
-    # Må finne strekk og trykk for en gitt tøyning
+def objective_function_e_c(
+    e_s,
+    e_c,
+    height,
+    material,
+    as_bot,
+    d_bot,
+    a_pre_bot,
+    d_pre_bot,
+    as_top,
+    d_top,
+    a_pre_top,
+    d_pre_top,
+    creep_eff,
+):
+    """
+    Metode som kaller "calc_inner_state" og returnerer riktig versjon av M / M.
+    """
+
+    # Kaller funksjonen calc_inner_state for å beregne indre tilstand
+    alpha, f_s, f_b, z = section_integrator(
+        e_s, e_c, height, material, as_bot, as_top, d_bot, d_top,
+        a_pre_bot, a_pre_top, d_pre_bot, d_pre_top, creep_eff
+    )
+
+    # Beregner momenter
+    mom_s = f_s * z
+    mom_b = f_b * z
+
+    # Returnerer objektfunksjonsverdien og andre relevante verdier
+    return mom_b / max(mom_s, 1e-6) - 1.0, alpha, mom_b, z
 
 
-    return 0
+def newton_optimize_e_s(
+    e_c,
+    height: ndarray,
+    material,
+    as_bot,
+    as_top,
+    d_bot,
+    d_top,
+    a_pre_bot,
+    a_pre_top,
+    d_pre_bot,
+    d_pre_top,
+    initial_guess,
+    creep_eff,
+):
+    """
+    Metode som gjør iterasjonen for e_s via Newton-Raphson.
+    Inneholder egne sjekk for e_s-optimering og er derfor skilt fra e_c.
+    """
+    # Initialiserer
+    max_iterations = 6
+    tolerance = 1e-3
+    e_s = initial_guess
+    iterations = 0
+    h = 1e-8
+    step_size = 1.0
+
+    while iterations <= max_iterations:
+        iterations += 1
+
+        # Regne ut objektfunksjonen og dens deriverte
+        f_value, alpha, mom_s, mom_b, z = objective_function_e_s(
+            e_s, e_c, height, material, as_bot, d_bot, a_pre_bot, d_pre_bot,
+            as_top, d_top, a_pre_top, d_pre_top, creep_eff
+        )
+        abs_f_value = abs(f_value)
+
+        f_value2, _, _, _, _ = objective_function_e_s(
+            e_s + h, e_c, height, material, as_bot, d_bot, a_pre_bot, d_pre_bot,
+            as_top, d_top, a_pre_top, d_pre_top, creep_eff
+        )
+
+        f_prime = (f_value2 - f_value) / h
+
+        # Oppdaterer e_s basert på Newton-Raphson-metoden
+        e_s -= step_size * f_value / f_prime
+
+        # Sjekk om tøyningen er altfor stor
+        if e_s > 0.016:
+            if mom_s < mom_b:
+                return -1.0, -1.0, -1.0, -1.0
+            e_s = 0.016
+            step_size *= 0.5  # Kan kanskje på sikt fjerne step_size.
+
+        # Sjekk mot konvergenskriteriet
+        if abs_f_value < tolerance:
+            return e_s, alpha, mom_b, z
+        elif e_s < 0.0 or math.isnan(e_s):
+            e_s = 0.0001
+            step_size *= 0.75
+
+    # Hvis maks antall iterasjoner er nådd uten konvergens
+    return -1.0, -1.0, -1.0, -1.0
+
+
+def newton_optimize_e_c(
+    e_s,
+    height: ndarray,
+    material,
+    as_bot,
+    as_top,
+    d_bot,
+    d_top,
+    a_pre_bot,
+    a_pre_top,
+    d_pre_bot,
+    d_pre_top,
+    initial_guess,
+    e_cu,
+    creep_eff,
+):
+    """
+    Metode som gjør iterasjonen for e_c via Newton-Raphson.
+    Inneholder egne sjekk for e_c-optimering og er derfor skilt fra e_s.
+    """
+    # Initialiserer
+    max_iterations = 6
+    tolerance = 1e-3
+    e_c = initial_guess
+    iterations = 0
+    h = 1e-8
+    step_size = 1.0
+
+    while iterations <= max_iterations:
+        iterations += 1
+
+        # Regne ut objektfunksjonen og dens deriverte
+        f_value, alpha, mom_b, z = objective_function_e_c(
+            e_s, e_c, height, material, as_bot, d_bot, a_pre_bot, d_pre_bot,
+            as_top, d_top, a_pre_top, d_pre_top, creep_eff
+        )
+        abs_f_value = abs(f_value)
+
+        f_value2, _, _, _ = objective_function_e_c(
+            e_s, e_c + h, height, material, as_bot, d_bot, a_pre_bot, d_pre_bot,
+            as_top, d_top, a_pre_top, d_pre_top, creep_eff
+        )
+
+        f_prime = (f_value2 - f_value) / h
+
+        # Justerer verdi i henhold til Newton-Raphson-iterasjonen
+        if abs_f_value > 1e-6:
+            e_c -= step_size * f_value / f_prime
+
+            # Sjekk om tøyningen er altfor stor
+            if e_c > e_cu:
+                e_c = e_cu
+                step_size *= 0.5  # Kan kanskje på sikt fjerne step_size.
+
+        # Sjekk mot konvergenskriteriet
+        if abs_f_value < tolerance:
+            return e_c, alpha, mom_b, z
+
+    # Hvis maks antall iterasjoner er nådd uten konvergens
+    return -1.0, -1.0, -1.0, -1.0
+
+def integration_iterator_ultimate(height: ndarray, rebar_vector: ndarray, d_vector: ndarray, concrete_material: ConcreteMaterial, creep_eff: float) -> float:
+    # Må ha en initiell testverdi
+    initial_guess = 0.015
+
+    # Kalkulasjon starter
+    # Må finne den verdien/kombinasjonen av e_cu og e_s som gir indre likevekt i tverrsnittet.
+    # Starter med å anta e_c = e_cu og ser om ulike verdier av e_s kan gi likevekt.
+
+    sum_as_bot = sum(as_bot)
+    sum_as_top = sum(as_top)
+
+    if sum_as_bot > sum_as_top:
+        e_s, alpha, mom_b, z = newton_optimize_e_s(
+            e_c,
+            height,
+            material,
+            as_bot,
+            as_top,
+            d_bot,
+            d_top,
+            a_pre_bot,
+            a_pre_top,
+            d_pre_bot,
+            d_pre_top,
+            initial_guess,
+            creep_eff,
+        )
+    else:
+        e_s = -1.0
+
+    # Sjekker om første iterasjon var vellykket
+    if e_s == -1.0:
+        # Betongtøyningen kan ikke nå e_cu. Setter en armeringstøyning og finner
+        # betongtøyning som gir likevekt i tverrsnittet (e_c < e_cu).
+        e_s = initial_guess
+        initial_guess = 0.00117
+        e_c, alpha, mom_b, z = newton_optimize_e_c(
+            e_s,
+            height,
+            material,
+            as_bot,
+            as_top,
+            d_bot,
+            d_top,
+            a_pre_bot,
+            a_pre_top,
+            d_pre_bot,
+            d_pre_top,
+            initial_guess,
+            e_cu,
+            creep_eff,
+    )
+
+    return (alpha, mom_b, e_s, e_c, z)
+
 
 def get_width(height_i: float, var: float) -> float:
     """ Lager en funksjon som beskriver bredden for enhver høyde"""

@@ -1,10 +1,10 @@
 import math
-from materialmodeller import CarbonMaterial, ConcreteMaterial, RebarMaterial, Material
+from materialmodeller import CarbonMaterial, ConcreteMaterial, RebarMaterial, Material, RebarB500NC
 import numpy as np
 
 from abc import ABC, abstractmethod
 from numpy import array, ndarray
-from typing import List, Tuple, Iterator
+from typing import List, Tuple
 
 def integrate_cross_section(e_ok: float, e_uk: float, height_uk: float, height: float, material, var_height: float) -> Tuple[float, float, float]:
     sum_f = 0
@@ -67,12 +67,12 @@ def section_integrator(e_ok: float, e_uk: float, height: float, material: Concre
     delta_eps: float = (e_ok - e_uk) / height
     d_0 = d_vector[0]
     e_s_d0: float = e_uk + delta_eps * d_0
-    alpha: float = e_ok / (e_ok - e_s_d0.abs)
+    alpha: float = e_ok / (e_ok - abs(e_s_d0))
 
     # Ønsker å finne hvilke lag som har strekk og trykk (og størrelse på kreftene)
-    d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(d_vector, rebar_vector, d_0, e_ok, e_s_d0, kryp, rebar_material)
+    d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(d_vector, rebar_vector, d_0, e_ok, e_s_d0, kryp, rebar_material, True)
     if carbon_vector is not None:
-        d_strekk_karbon, f_strekk_karbon, d_trykk_karbon, f_trykk_karbon = evaluate_reinforcement_from_strain(d_karbon, carbon_vector, d_0, e_ok, e_s_d0, 0, carbon_material)
+        d_strekk_karbon, f_strekk_karbon, d_trykk_karbon, f_trykk_karbon = evaluate_reinforcement_from_strain(d_karbon, carbon_vector, d_0, e_ok, e_s_d0, 0, carbon_material, False)
     else:
         d_strekk_karbon: ndarray = array()
         f_strekk_karbon: ndarray = array()
@@ -294,24 +294,31 @@ def newton_optimize_e_c(
     # Hvis maks antall iterasjoner er nådd uten konvergens
     return -1.0, -1.0, -1.0, -1.0
 
-def integration_iterator_ultimate(height: ndarray, rebar_vector: ndarray, d_vector: ndarray, concrete_material: ConcreteMaterial, creep_eff: float) -> float:
+def integration_iterator_ultimate(height: ndarray, as_area_bot: ndarray, as_area_top: ndarray, d_bot: ndarray, d_top: ndarray,
+                                   concrete_material: ConcreteMaterial, rebar_material: RebarMaterial, rebar_pre_material: RebarMaterial = None,
+                                   a_pre_bot: ndarray = None, a_pre_top: ndarray = None, d_pre_bot: ndarray = None, d_pre_top: ndarray = None,
+                                   area_carbon: ndarray = None, d_carbon: ndarray = None, carbon_material: CarbonMaterial = None, creep_eff: float = 0) -> float:
     # Må ha en initiell testverdi
     initial_guess = 0.015
+    e_cu = concrete_material.get_e_cu()
 
     # Kalkulasjon starter
     # Må finne den verdien/kombinasjonen av e_cu og e_s som gir indre likevekt i tverrsnittet.
     # Starter med å anta e_c = e_cu og ser om ulike verdier av e_s kan gi likevekt.
 
-    sum_as_bot = sum(as_bot)
-    sum_as_top = sum(as_top)
+    sum_as_bot = np.sum(as_area_bot)
+    sum_as_top = np.sum(as_area_top)
 
     if sum_as_bot > sum_as_top:
         e_s, alpha, mom_b, z = newton_optimize_e_s(
             e_c,
             height,
-            material,
-            as_bot,
-            as_top,
+            concrete_material,
+            #rebar_material,
+            #rebar_pre_material,
+            #carbon_material,
+            as_area_bot,
+            as_area_top,
             d_bot,
             d_top,
             a_pre_bot,
@@ -333,9 +340,9 @@ def integration_iterator_ultimate(height: ndarray, rebar_vector: ndarray, d_vect
         e_c, alpha, mom_b, z = newton_optimize_e_c(
             e_s,
             height,
-            material,
-            as_bot,
-            as_top,
+            concrete_material,
+            as_area_bot,
+            as_area_top,
             d_bot,
             d_top,
             a_pre_bot,
@@ -366,5 +373,13 @@ def get_width(height_i: float, var: float) -> float:
 
 if __name__ == "__main__":
     betong_b35: ConcreteMaterial = ConcreteMaterial(35, material_model="Parabola")
+    armering: RebarMaterial = RebarB500NC()
     sum_f, sum_m, d_bet = integrate_cross_section(0.0035, 0, 0, 200, betong_b35, 300)
+    height = np.array(300)
+    as_area_bot = np.array([128 * 3.14, 64 * 3.14])
+    as_area_top = np.array([128 * 3.14, 64 * 3.14])
+    d_bot = np.array([250, 200])
+    d_top = np.array([50])
+    alpha, mom, e_s, e_c = integration_iterator_ultimate(height, as_area_bot, as_area_top, d_bot, d_top, betong_b35, armering)  
+
     print(f"Force is {sum_f / 1000:.1f} kN")

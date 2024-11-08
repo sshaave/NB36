@@ -36,9 +36,7 @@ class Material(ABC):
         pass
 
 class CarbonMaterial(Material):
-    @abstractmethod
-    def get_f_yd(self) -> float:
-        return self.f_yd
+    """ Karbonfiber, generell"""
     @abstractmethod
     def get_eps_s_y(self) -> float:
         pass
@@ -47,6 +45,7 @@ class CarbonMaterial(Material):
         pass
 
 class CarbonFiberDummy(CarbonMaterial):
+    """ Testmateriale for karbon"""
     def __init__(self) -> None:
         self.f_yk = 1e4
         self.gamma = 1.0
@@ -58,19 +57,19 @@ class CarbonFiberDummy(CarbonMaterial):
         return strain * self.e_s
 
     def get_f_yd(self) -> float:
-        return super().get_f_yd()
+        """" Dimensjonerende flytespenning"""
+        return self.f_yd
     
     def get_eps_s_y(self) -> float:
-        return self.eps_s_y()
+        return self.eps_s_y
 
     def get_e_s_rebar(self) -> float:
+        """ Elastisitetsmodul"""
         return self.e_mod
 
 class RebarMaterial(Material):
+    """ Abstrakt/generell armering """
 
-    @abstractmethod
-    def get_f_yd(self) -> float:
-        return self.f_yd
     @abstractmethod
     def get_eps_s_y(self) -> float:
         pass
@@ -78,7 +77,9 @@ class RebarMaterial(Material):
     def get_e_s_rebar(self) -> float:
         pass
 
+
 class RebarB500NC(RebarMaterial):
+    """ Vanlig armering"""
     def __init__(self) -> None:
         self.f_yk = 500
         self.gamma = 1.15
@@ -89,14 +90,14 @@ class RebarB500NC(RebarMaterial):
     def get_stress(self, strain: float) -> float:
         if strain < 0:
             return min(strain * self.e_s, self.f_yd)
-        else: 
-            return max(strain * self.e_s, self.f_yd)
+        return max(strain * self.e_s, self.f_yd)
     
     def get_f_yd(self) -> float:
-        return super().get_f_yd()
+        """Dimensjonerende flytespenning"""
+        return self.f_yd
     
     def get_eps_s_y(self) -> float:
-        return self.eps_s_y()
+        return self.eps_s_y
 
     def get_e_s_rebar(self) -> float:
         return self.e_s
@@ -109,17 +110,22 @@ class ConcreteMaterial(Material):
         self.f_ctm: float = 0
         self.e_cm: float = 0
         self.p_r: float = 0.2
+        self.f_cm: float = 0
+        self.e_cy: float = 0
+        self.e_cu: float = 0
         self.material_model = material_model
         self.f_ctm, self.e_cm = self.fetch_material_parameters()
         self.get_eps_cu_c_n()
         self.gamma = 1.5
 
-    def get_stress(self, eps_i: float) -> float:
+    def get_stress(self, strain: float) -> float:
         if self.material_model == "Sargin":
-            return sargin_mat_model(eps_i, self.e_cy, self.e_cu, self.e_cm, self.f_cm)
+            return sargin_mat_model(strain, self.e_cy, self.e_cu, self.e_cm, self.f_cm)
         else:
-            return parabel_rektangel(eps_i, self.e_cy, self.n, self.e_cu, self.f_cd)
+            return parabel_rektangel(strain, self.e_cy, self.n, self.e_cu, self.f_cd)
 
+    def get_e_cu(self) -> float:
+        return self.e_cu
 
     def get_eps_cu_c_n(self):
         if self.material_model == "Parabola":

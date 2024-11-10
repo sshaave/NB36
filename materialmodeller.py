@@ -21,6 +21,7 @@ def sargin_mat_model(e_c: float, e_c1: float, e_cu1: float, e_cm: float, f_cm: f
         return f_cm * (k * eta - eta**2) / (1 + (k - 2) * eta)
 
 class Material(ABC):
+    """ Generelt materialklasse"""
     @property
     def e_mod(self):
         return self.e_mod
@@ -33,15 +34,22 @@ class Material(ABC):
 
     @abstractmethod
     def get_stress(self, strain: float) -> float:
+        """Gir spenning for en gitt tøyning"""
         pass
+
+    @abstractmethod
+    def get_f_yd(self) -> float:
+        """ Flytspenning"""
 
 class CarbonMaterial(Material):
     """ Karbonfiber, generell"""
     @abstractmethod
     def get_eps_s_y(self) -> float:
+        """Flyttøyning"""
         pass
     @abstractmethod
     def get_e_modulus(self) -> float:
+        """ Elastisitetsmodul i N/mm2"""
         pass
 
 class CarbonFiberDummy(CarbonMaterial):
@@ -75,6 +83,10 @@ class RebarMaterial(Material):
         pass
     @abstractmethod
     def get_e_s_rebar(self) -> float:
+        pass
+    
+    @abstractmethod
+    def get_f_yd(self):
         pass
 
 
@@ -196,9 +208,12 @@ class ConcreteMaterial(Material):
             }
 
         return properties.get(int(self.f_ck), (0.0, 0.0, 0.0))
+    def get_f_yd(self):
+        return 0
     
 
 if __name__ == "__main__":
     betong_b35: ConcreteMaterial = ConcreteMaterial(35, material_model="Parabola")
+    print("Hei")
     #sum_f, sum_m, d_bet = integrate_cross_section(0.0035, 0, 0, 200, betong_b35, 300)
     #print(f"Force is {sum_f / 1000:.1f} kN")

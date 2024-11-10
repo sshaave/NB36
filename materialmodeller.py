@@ -41,6 +41,10 @@ class Material(ABC):
     def get_f_yd(self) -> float:
         """ Flytspenning"""
 
+    @abstractmethod
+    def get_eps_s_y(self) -> float:
+        """flyttøyning"""
+
 class CarbonMaterial(Material):
     """ Karbonfiber, generell"""
     @abstractmethod
@@ -208,7 +212,11 @@ class ConcreteMaterial(Material):
             }
 
         return properties.get(int(self.f_ck), (0.0, 0.0, 0.0))
+    
     def get_f_yd(self):
+        return 0
+    
+    def get_eps_s_y(self) -> float:
         return 0
     
 

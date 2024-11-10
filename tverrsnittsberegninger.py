@@ -7,7 +7,7 @@ from materialmodeller import CarbonMaterial, ConcreteMaterial, RebarMaterial, Ma
 
 
 
-def integrate_cross_section(e_ok: float, e_uk: float, height_uk: float, height: float, material, var_height: float) -> Tuple[float, float, float]:
+def integrate_cross_section(e_ok: float, e_uk: float, height_uk: float, height: float, material, var_height: float = None) -> Tuple[float, float, float]:
     """Integrere opp betongarealet"""
     sum_f = 0
     sum_mom = 0
@@ -17,7 +17,10 @@ def integrate_cross_section(e_ok: float, e_uk: float, height_uk: float, height: 
     delta_h = height / iterations
     for i in range(iterations):
         height_i = height_uk + delta_h * i
-        width_i = get_width(height_i, var_height)
+        if var_height is None:
+            width_i = get_width(height_i, 0)
+        else:
+            width_i = get_width(height_i, var_height)
         area_i = width_i * delta_h
         
         eps_i = e_uk + delta_e * i
@@ -37,18 +40,19 @@ def evaluate_reinforcement_from_strain(
         e_c: float,
         e_s: float,
         creep_eff: float,
-        material: Material,
+        steel_material: Material,
+        concrete_material: ConcreteMaterial,
         is_inside_concrete: bool) -> Tuple[ndarray, ndarray, ndarray, ndarray]:
     """Krefter i armering basert på tøyninger. Behandler alle som punkter og ikke areal"""
-    f_yd = material.get_f_yd()
-    e_s_flyt = material.get_e_s_y()
-    emod_s = material.get_E_s_rebar()  # N/mm2
+    f_yd = steel_material.get_f_yd()
+    e_s_flyt = steel_material.get_eps_s_y()
+    emod_s = steel_material.get_e_s_rebar()  # N/mm2
 
 
-    d_vec_strekk: ndarray = array()
-    f_vec_strekk: ndarray = array()
-    d_vec_trykk: ndarray = array()
-    f_vec_trykk: ndarray = array()
+    d_vec_strekk: ndarray = array([])
+    f_vec_strekk: ndarray = array([])
+    d_vec_trykk: ndarray = array([])
+    f_vec_trykk: ndarray = array([])
 
     for d, as_ in zip(d_vector, a_vector):
         toyning = -e_c + (e_c - e_s) / d_0 * d
@@ -64,12 +68,12 @@ def evaluate_reinforcement_from_strain(
         else:
             # Compression - using adjusted stress to account for displaced concrete area
             if is_inside_concrete:
-                concrete_spenning = material.get_stress_at_strain(-toyning)
+                concrete_spenning = concrete_material.get_stress(-toyning)
             else:
                 concrete_spenning = 0
             justert_spenning = spenning + concrete_spenning
-            d_vec_trykk.append(d)
-            f_vec_trykk.append(justert_spenning * as_)
+            np.append(d_vec_trykk, d)
+            np.append(f_vec_trykk, justert_spenning * as_)
 
     return d_vec_strekk, f_vec_strekk, d_vec_trykk, f_vec_trykk
 
@@ -78,31 +82,39 @@ def section_integrator(
     e_ok: float,
     e_uk: float,
     height: float,
-    material: ConcreteMaterial, 
+    material: ConcreteMaterial,
     rebar_material: RebarMaterial,
-    rebar_vector: ndarray,
-    d_vector: ndarray,
+    as_bot: ndarray,
+    as_top: ndarray,
+    d_bot: ndarray,
+    d_top: ndarray,
     creep: float,
-    var_height: float,
-    kryp: float,
-    d_karbon: ndarray=None, 
+    a_pre_bot: ndarray = None,
+    a_pre_top: ndarray = None,
+    d_pre_bot: ndarray = None,
+    d_pre_top: ndarray = None,
+    d_karbon: ndarray=None,
     carbon_vector: ndarray=None,
     carbon_material: CarbonMaterial=None):
+    """Integrerer opp tverrsnittet"""
     # Starter med å finne alpha fra tøyningene. Antar at tøyninger som gir trykk er positive, og strekk negativt. 
     delta_eps: float = (e_ok - e_uk) / height
-    d_0 = d_vector[0]
+    d_0 = d_bot[0]
+    d_vector = np.concatenate((d_bot, d_top), axis=0)
+    rebar_vector = np.concatenate((as_bot, as_top), axis=0)
     e_s_d0: float = e_uk + delta_eps * d_0
     alpha: float = e_ok / (e_ok - abs(e_s_d0))
+    
 
     # Ønsker å finne hvilke lag som har strekk og trykk (og størrelse på kreftene)
-    d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(d_vector, rebar_vector, d_0, e_ok, e_s_d0, kryp, rebar_material, True)
+    d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(d_vector, rebar_vector, d_0, e_ok, e_s_d0, creep, rebar_material, material, True)
     if carbon_vector is not None:
-        d_strekk_karbon, f_strekk_karbon, d_trykk_karbon, f_trykk_karbon = evaluate_reinforcement_from_strain(d_karbon, carbon_vector, d_0, e_ok, e_s_d0, 0, carbon_material, False)
+        d_strekk_karbon, f_strekk_karbon, d_trykk_karbon, f_trykk_karbon = evaluate_reinforcement_from_strain(d_karbon, carbon_vector, d_0, e_ok, e_s_d0, 0, carbon_material, material, False)
     else:
-        d_strekk_karbon: ndarray = array()
-        f_strekk_karbon: ndarray = array()
-        d_trykk_karbon: ndarray = array()
-        f_trykk_karbon: ndarray = array()
+        d_strekk_karbon: ndarray = array([])
+        f_strekk_karbon: ndarray = array([])
+        d_trykk_karbon: ndarray = array([])
+        f_trykk_karbon: ndarray = array([])
 
     
     sum_f_strekk_armering = np.sum(f_strekk)
@@ -116,7 +128,7 @@ def section_integrator(
     e_c_uk = 0. # bøyning, en del vil alltid være i strekk så setter denne 0 for integralet sin del
 
     height_uk = height - alpha_d
-    f_bet, m_bet, d_bet = integrate_cross_section(e_ok, e_uk, height_uk, height, material, var_height)
+    f_bet, m_bet, d_bet = integrate_cross_section(e_ok, e_uk, height_uk, height, material) #, var_height)
 
     # Regner ut bidraget fra armering
     sum_trykkmoment: float = -np.dot(f_trykk, d_trykk) + m_bet
@@ -146,10 +158,13 @@ def objective_function_e_s(
     """
     Metode som kaller "calc_inner_state" og returnerer riktig versjon av M / M.
     """
-
+    e_ok = e_c
+    d0 = d_bot[0]
+    alpha = e_c / (e_c + e_s)
+    e_uk = e_s / (d0 * (1 - alpha)) * (height - d0 * alpha)
     # Kaller funksjonen calc_inner_state for å beregne indre tilstand
     alpha, f_s, f_b, z = section_integrator(
-        e_s, e_c, height, material, rebar_material, as_bot, as_top, d_bot, d_top,
+        e_ok, e_uk, height, material, rebar_material, as_bot, as_top, d_bot, d_top,
         a_pre_bot, a_pre_top, d_pre_bot, d_pre_top, creep_eff
     )
 
@@ -164,7 +179,7 @@ def objective_function_e_s(
 def objective_function_e_c(
     e_s,
     e_c,
-    height,
+    height:ndarray,
     material: ConcreteMaterial,
     rebar_material: RebarMaterial,
     as_bot,
@@ -180,10 +195,13 @@ def objective_function_e_c(
     """
     Metode som kaller "calc_inner_state" og returnerer riktig versjon av M / M.
     """
-
+    e_ok = e_c
+    d0 = d_bot[0]
+    alpha = e_c / (e_c + e_s)
+    e_uk = e_s / (d0 * (1 - alpha)) * (height - d0)
     # Kaller funksjonen calc_inner_state for å beregne indre tilstand
     alpha, f_s, f_b, z = section_integrator(
-        e_s, e_c, height, material, rebar_material, as_bot, as_top, d_bot, d_top,
+        e_ok, e_uk, height, material, rebar_material, as_bot, as_top, d_bot, d_top,
         a_pre_bot, a_pre_top, d_pre_bot, d_pre_top, creep_eff
     )
 
@@ -340,6 +358,7 @@ def integration_iterator_ultimate(
     d_carbon: ndarray = None,
     carbon_material: CarbonMaterial = None,
     creep_eff: float = 0) -> float:
+    """For ULS"""
     # Må ha en initiell testverdi
     initial_guess = 0.015
     e_cu = concrete_material.get_e_cu()
@@ -385,6 +404,7 @@ def integration_iterator_ultimate(
             e_s,
             height,
             concrete_material,
+            rebar_material,
             as_area_bot,
             as_area_top,
             d_bot,
@@ -405,14 +425,14 @@ def get_width(height_i: float, var: float) -> float:
     """ Lager en funksjon som beskriver bredden for enhver høyde"""
     if height_i < 80:
         return 320
-    elif height_i < 220: 
+    elif height_i < 220:
         return 320 - 220 * (height_i - 80) / 140
     elif height_i < 220 + var:
         return 100
     elif height_i < 220 + var + 50:
         rel_height = height_i - (220 + var)
         return 100 + 320 * (height_i - rel_height) / 50
-    else: 
+    else:
         return 420
 
 if __name__ == "__main__":
@@ -421,9 +441,10 @@ if __name__ == "__main__":
     sum_f, sum_m, d_bet = integrate_cross_section(0.0035, 0, 0, 200, betong_b35, 300)
     height = np.array(300)
     as_area_bot = np.array([128 * 3.14, 64 * 3.14])
-    as_area_top = np.array([128 * 3.14, 64 * 3.14])
+    as_area_top = np.array([64 * 3.14])
     d_bot = np.array([250, 200])
     d_top = np.array([50])
-    alpha, mom, e_s, e_c, z = integration_iterator_ultimate(height, as_area_bot, as_area_top, d_bot, d_top, betong_b35, armering)
-
+    alpha, mom, e_s, e_c, z = integration_iterator_ultimate(
+        height, as_area_bot, as_area_top, d_bot, d_top, betong_b35, armering)
     print(f"Force is {sum_f / 1000:.1f} kN")
+   

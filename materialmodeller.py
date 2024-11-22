@@ -136,9 +136,8 @@ class ConcreteMaterial(Material):
 
     def get_stress(self, strain: float) -> float:
         if self.material_model == "Sargin":
-            return sargin_mat_model(strain, self.e_cy, self.e_cu, self.e_cm, self.f_cm)
-        else:
-            return parabel_rektangel(strain, self.e_cy, self.n, self.e_cu, self.f_cd)
+            return sargin_mat_model(-strain, -self.e_cy, -self.e_cu, self.e_cm, self.f_cm)
+        return parabel_rektangel(-strain, -self.e_cy, self.n, -self.e_cu, self.f_cd)
 
     def get_e_cu(self) -> float:
         return self.e_cu
@@ -154,7 +153,7 @@ class ConcreteMaterial(Material):
             print("Error in material model name")
 
     def get_eps_cu1_c1(self):
-    # Returns eps_c1 and eps_cu1 values for concrete type defined in Table 3.1 of NS-EN 1992-1-1
+        """Returns eps_c1 and eps_cu1 values for concrete type defined in Table 3.1 of NS-EN 1992-1-1""" 
         self.f_cm = self.f_ck + 8.0
         self.e_cy = min(0.7 * self.f_cm**0.31, 2.8) / 1000.0
         if self.f_ck < 55.0:
@@ -164,38 +163,37 @@ class ConcreteMaterial(Material):
 
 
     def get_eps_cu2_c2_n(self):
-        # Returns eps_c2 and eps_cu2 values for concrete type defined in Table 3.1 of NS-EN 1992-1-1
+        """Returns eps_c2 and eps_cu2 values for concrete type defined in Table 3.1 of NS-EN 1992-1-1"""
         if self.f_ck < 55.0:
-            return (0.00350, 0.00200, 2.0)
-        elif self.f_ck == 55.0:
-            return (0.00313, 0.00220, 1.75)
-        elif self.f_ck == 60.0:
-            return (0.00288, 0.00229, 1.59)
-        elif self.f_ck == 70.0:
-            return (0.00266, 0.00242, 1.44)
-        elif self.f_ck == 80.0:
-            return (0.00260, 0.00252, 1.4)
-        else:
-            return (0.00260, 0.00260, 1.4)
+            return (-0.00350, -0.00200, 2.0)
+        if self.f_ck == 55.0:
+            return (-0.00313, -0.00220, 1.75)
+        if self.f_ck == 60.0:
+            return (-0.00288, -0.00229, 1.59)
+        if self.f_ck == 70.0:
+            return (-0.00266, -0.00242, 1.44)
+        if self.f_ck == 80.0:
+            return (-0.00260, -0.00252, 1.4)
+        return (-0.00260, -0.00260, 1.4)
 
     def get_eps_cu3_c3(self):
-        # Returns eps_c3 and eps_cu3 values for concrete type defined in Table 3.1 of NS-EN 1992-1-1
+        """Returns eps_c3 and eps_cu3 values for concrete type defined in Table 3.1 of NS-EN 1992-1-1"""
         if self.f_ck < 55.0:
-            return (0.00350, 0.00175, 0.0)
+            return (-0.00350, -0.00175, 0.0)
         elif self.f_ck == 55.0:
-            return (0.00313, 0.00182, 0.0)
+            return (-0.00313, -0.00182, 0.0)
         elif self.f_ck == 60.0:
-            return (0.00288, 0.00188, 0.0)
+            return (-0.00288, -0.00188, 0.0)
         elif self.f_ck == 70.0:
-            return (0.00266, 0.00202, 0.0)
+            return (-0.00266, -0.00202, 0.0)
         elif self.f_ck == 80.0:
-            return (0.00260, 0.00216, 0.0)
+            return (-0.00260, -0.00216, 0.0)
         else:
-            return (0.00260, 0.00230, 0.0)
+            return (-0.00260, -0.00230, 0.0)
 
 
     def fetch_material_parameters(self):
-        # Retrieves f_ctm and E_modbased on material strength
+        """Retrieves f_ctm and E_modbased on material strength"""
         properties = {
             20: (2.2, 3.0e4),
             25: (2.6, 3.1e4),

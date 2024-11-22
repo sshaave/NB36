@@ -55,7 +55,7 @@ def evaluate_reinforcement_from_strain(
     f_vec_trykk: ndarray = array([])
 
     for d, as_ in zip(d_vector, a_vector):
-        toyning = -e_c + (e_c - e_s) / d_0 * d
+        toyning = e_c + (e_s - e_c) / d_0 * d
         if toyning >= 0:
             spenning = f_yd if toyning >= e_s_flyt else emod_s * toyning
         else:
@@ -63,8 +63,8 @@ def evaluate_reinforcement_from_strain(
 
         if toyning >= 0:
             # Tension
-            d_vec_strekk.append(d)
-            f_vec_strekk.append(spenning * as_)
+            d_vec_strekk = np.append(d_vec_strekk, d)
+            f_vec_strekk = np.append(f_vec_strekk, spenning * as_)
         else:
             # Compression - using adjusted stress to account for displaced concrete area
             if is_inside_concrete:
@@ -72,8 +72,8 @@ def evaluate_reinforcement_from_strain(
             else:
                 concrete_spenning = 0
             justert_spenning = spenning + concrete_spenning
-            np.append(d_vec_trykk, d)
-            np.append(f_vec_trykk, justert_spenning * as_)
+            d_vec_trykk = np.append(d_vec_trykk, d)
+            f_vec_trykk = np.append(f_vec_trykk, justert_spenning * as_)
 
     return d_vec_strekk, f_vec_strekk, d_vec_trykk, f_vec_trykk
 
@@ -123,6 +123,8 @@ def section_integrator(
     sum_f_trykk_karbon = np.sum(f_trykk_karbon)
 
     # Tyngdepunkt for armering
+    if sum_f_strekk_armering == 0:
+        print("sum_f_ er 0")
     d_strekk_avg: float = np.dot(f_strekk, d_strekk) / sum_f_strekk_armering
     alpha_d: float = alpha * d_0
     e_c_uk = 0. # bøyning, en del vil alltid være i strekk så setter denne 0 for integralet sin del
@@ -444,7 +446,12 @@ if __name__ == "__main__":
     as_area_top = np.array([64 * 3.14])
     d_bot = np.array([250, 200])
     d_top = np.array([50])
-    alpha, mom, e_s, e_c, z = integration_iterator_ultimate(
-        height, as_area_bot, as_area_top, d_bot, d_top, betong_b35, armering)
-    print(f"Force is {sum_f / 1000:.1f} kN")
-   
+    #alpha, mom, e_s, e_c, z = integration_iterator_ultimate(
+    #    height, as_area_bot, as_area_top, d_bot, d_top, betong_b35, armering)
+    #print(f"Force is {sum_f / 1000:.1f} kN")
+
+
+    d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(np.array([300, 200]), np.array([300, 300]), 300, -0.0035, 0.00217, 0, armering, betong_b35, True)
+    print(d_strekk)
+    print(f_strekk)
+

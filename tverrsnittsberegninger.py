@@ -100,10 +100,13 @@ def section_integrator(
     # Starter med å finne alpha fra tøyningene. Antar at tøyninger som gir trykk er positive, og strekk negativt. 
     delta_eps: float = (e_ok - e_uk) / height
     d_0 = d_bot[0]
+    e_s_d0: float = e_uk + delta_eps * d_0
+    alpha: float = min(max(e_ok / (e_ok - e_s_d0), 0), 1)
+    if alpha == 0 or alpha == 1:
+        print("feil i alpha", alpha)
+    
     d_vector = np.concatenate((d_bot, d_top), axis=0)
     rebar_vector = np.concatenate((as_bot, as_top), axis=0)
-    e_s_d0: float = e_uk + delta_eps * d_0
-    alpha: float = e_ok / (e_ok - abs(e_s_d0))
     
 
     # Ønsker å finne hvilke lag som har strekk og trykk (og størrelse på kreftene)
@@ -441,14 +444,16 @@ if __name__ == "__main__":
     betong_b35: ConcreteMaterial = ConcreteMaterial(35, material_model="Parabola")
     armering: RebarMaterial = RebarB500NC()
     sum_f, sum_m, d_bet = integrate_cross_section(0.0035, 0, 0, 200, betong_b35, 300)
+    print(f"Force is {sum_f / 1000:.1f} kN")
+
     height = np.array(300)
     as_area_bot = np.array([128 * 3.14, 64 * 3.14])
     as_area_top = np.array([64 * 3.14])
     d_bot = np.array([250, 200])
     d_top = np.array([50])
-    #alpha, mom, e_s, e_c, z = integration_iterator_ultimate(
-    #    height, as_area_bot, as_area_top, d_bot, d_top, betong_b35, armering)
-    #print(f"Force is {sum_f / 1000:.1f} kN")
+    alpha, mom, e_s, e_c, z = integration_iterator_ultimate(
+        height, as_area_bot, as_area_top, d_bot, d_top, betong_b35, armering)
+    print("alpha:", alpha)
 
 
     d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(np.array([300, 200]), np.array([300, 300]), 300, -0.0035, 0.00217, 0, armering, betong_b35, True)

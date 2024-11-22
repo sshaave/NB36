@@ -1,16 +1,22 @@
 from abc import ABC, abstractmethod
- 
-def parabel_rektangel(e_c: float, e_c2: float, n: float, e_cu2: float, f_cd: float) -> float:
+
+
+def parabel_rektangel(
+    e_c: float, e_c2: float, n: float, e_cu2: float, f_cd: float
+) -> float:
     # Iht Figur 3.3 og Ligning (3.17)
     if e_c > e_cu2:
         return 0
     elif e_c >= e_c2:
         return f_cd
     else:
-        sigma_c = f_cd * (1 - (1 - e_c / e_c2)**n)
+        sigma_c = f_cd * (1 - (1 - e_c / e_c2) ** n)
         return sigma_c
 
-def sargin_mat_model(e_c: float, e_c1: float, e_cu1: float, e_cm: float, f_cm: float) -> float:
+
+def sargin_mat_model(
+    e_c: float, e_c1: float, e_cu1: float, e_cm: float, f_cm: float
+) -> float:
     # Iht Figur 3.2 og Ligning (3.14)
     k = 1.05 * e_cm * abs(e_c1) / f_cm
     eta = e_c / e_c1
@@ -20,8 +26,10 @@ def sargin_mat_model(e_c: float, e_c1: float, e_cu1: float, e_cm: float, f_cm: f
     else:
         return f_cm * (k * eta - eta**2) / (1 + (k - 2) * eta)
 
+
 class Material(ABC):
-    """ Generelt materialklasse"""
+    """Generelt materialklasse"""
+
     @property
     def e_mod(self):
         return self.e_mod
@@ -39,88 +47,96 @@ class Material(ABC):
 
     @abstractmethod
     def get_f_yd(self) -> float:
-        """ Flytspenning"""
+        """Flytspenning"""
 
     @abstractmethod
     def get_eps_s_y(self) -> float:
         """flyttøyning"""
 
+
 class CarbonMaterial(Material):
-    """ Karbonfiber, generell"""
+    """Karbonfiber, generell"""
+
     @abstractmethod
     def get_eps_s_y(self) -> float:
         """Flyttøyning"""
         pass
+
     @abstractmethod
     def get_e_modulus(self) -> float:
-        """ Elastisitetsmodul i N/mm2"""
+        """Elastisitetsmodul i N/mm2"""
         pass
 
+
 class CarbonFiberDummy(CarbonMaterial):
-    """ Testmateriale for karbon"""
+    """Testmateriale for karbon"""
+
     def __init__(self) -> None:
         self.f_yk = 1e4
         self.gamma = 1.0
         self.e_s = 1 * 1e6
         self.f_yd = self.f_yk / self.gamma
         self.eps_s_y = self.f_yd / self.e_s
-    
+
     def get_stress(self, strain: float) -> float:
         return strain * self.e_s
 
     def get_f_yd(self) -> float:
-        """" Dimensjonerende flytespenning"""
+        """ " Dimensjonerende flytespenning"""
         return self.f_yd
-    
+
     def get_eps_s_y(self) -> float:
         return self.eps_s_y
 
     def get_e_s_rebar(self) -> float:
-        """ Elastisitetsmodul"""
+        """Elastisitetsmodul"""
         return self.e_mod
 
+
 class RebarMaterial(Material):
-    """ Abstrakt/generell armering """
+    """Abstrakt/generell armering"""
 
     @abstractmethod
     def get_eps_s_y(self) -> float:
         pass
+
     @abstractmethod
     def get_e_s_rebar(self) -> float:
         pass
-    
+
     @abstractmethod
     def get_f_yd(self):
         pass
 
 
 class RebarB500NC(RebarMaterial):
-    """ Vanlig armering"""
+    """Vanlig armering"""
+
     def __init__(self) -> None:
         self.f_yk = 500
         self.gamma = 1.15
         self.e_s = 2 * 1e5
         self.f_yd = self.f_yk / self.gamma
         self.eps_s_y = self.f_yd / self.e_s
-    
+
     def get_stress(self, strain: float) -> float:
         if strain < 0:
             return min(strain * self.e_s, self.f_yd)
         return max(strain * self.e_s, self.f_yd)
-    
+
     def get_f_yd(self) -> float:
         """Dimensjonerende flytespenning"""
         return self.f_yd
-    
+
     def get_eps_s_y(self) -> float:
         return self.eps_s_y
 
     def get_e_s_rebar(self) -> float:
         return self.e_s
-    
+
 
 class ConcreteMaterial(Material):
-    def __init__(self, f_ck: int, material_model: str="Sargin") -> None:
+    def __init__(self, f_ck: int, material_model: str = "Sargin") -> None:
         self.f_ck = f_ck
         self.f_cd = f_ck / 1.5 * 0.85
         self.f_ctm: float = 0
@@ -136,7 +152,9 @@ class ConcreteMaterial(Material):
 
     def get_stress(self, strain: float) -> float:
         if self.material_model == "Sargin":
-            return sargin_mat_model(-strain, -self.e_cy, -self.e_cu, self.e_cm, self.f_cm)
+            return sargin_mat_model(
+                -strain, -self.e_cy, -self.e_cu, self.e_cm, self.f_cm
+            )
         return parabel_rektangel(-strain, -self.e_cy, self.n, -self.e_cu, self.f_cd)
 
     def get_e_cu(self) -> float:
@@ -153,14 +171,13 @@ class ConcreteMaterial(Material):
             print("Error in material model name")
 
     def get_eps_cu1_c1(self):
-        """Returns eps_c1 and eps_cu1 values for concrete type defined in Table 3.1 of NS-EN 1992-1-1""" 
+        """Returns eps_c1 and eps_cu1 values for concrete type defined in Table 3.1 of NS-EN 1992-1-1"""
         self.f_cm = self.f_ck + 8.0
         self.e_cy = min(0.7 * self.f_cm**0.31, 2.8) / 1000.0
         if self.f_ck < 55.0:
-            self.e_cu = 0.00350
+            self.e_cu = -0.00350
         else:
-            self.e_cu = (2.8 + 27.0 * ((98.0 - self.f_cm) / 100.0)**4) / 1000.0
-
+            self.e_cu = -(2.8 + 27.0 * ((98.0 - self.f_cm) / 100.0) ** 4) / 1000.0
 
     def get_eps_cu2_c2_n(self):
         """Returns eps_c2 and eps_cu2 values for concrete type defined in Table 3.1 of NS-EN 1992-1-1"""
@@ -191,7 +208,6 @@ class ConcreteMaterial(Material):
         else:
             return (-0.00260, -0.00230, 0.0)
 
-
     def fetch_material_parameters(self):
         """Retrieves f_ctm and E_modbased on material strength"""
         properties = {
@@ -206,20 +222,20 @@ class ConcreteMaterial(Material):
             60: (4.4, 3.9e4),
             70: (4.6, 4.1e4),
             80: (4.8, 4.2e4),
-            90: (5.0, 4.4e4)
-            }
+            90: (5.0, 4.4e4),
+        }
 
         return properties.get(int(self.f_ck), (0.0, 0.0, 0.0))
-    
+
     def get_f_yd(self):
         return 0
-    
+
     def get_eps_s_y(self) -> float:
         return 0
-    
+
 
 if __name__ == "__main__":
     betong_b35: ConcreteMaterial = ConcreteMaterial(35, material_model="Parabola")
     print("Hei")
-    #sum_f, sum_m, d_bet = integrate_cross_section(0.0035, 0, 0, 200, betong_b35, 300)
-    #print(f"Force is {sum_f / 1000:.1f} kN")
+    # sum_f, sum_m, d_bet = integrate_cross_section(0.0035, 0, 0, 200, betong_b35, 300)
+    # print(f"Force is {sum_f / 1000:.1f} kN")

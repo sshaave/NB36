@@ -16,27 +16,28 @@ from materialmodeller import (
 def integrate_cross_section(
     e_ok: float,
     e_uk: float,
-    height_uk: float,
-    height: float,
+    height_ec_zero: float,
+    height_total: float,
     material: ConcreteMaterial,
     var_height: float = None,
 ) -> Tuple[float, float, float]:
     """Integrere opp betongarealet"""
     sum_f = 0
     sum_mom = 0
+    height_compression = height_total - height_ec_zero
 
-    iterations = 1000
+    iterations = 100
     delta_e = (e_ok - e_uk) / iterations
-    delta_h = height / iterations
+    delta_h = height_compression / iterations
     for i in range(iterations):
-        height_i = height_uk + delta_h * i
+        height_i = height_ec_zero + delta_h * i
         if var_height is None:
             width_i = get_width(height_i, 0)
         else:
             width_i = get_width(height_i, var_height)
         area_i = width_i * delta_h
 
-        eps_i = e_uk - delta_e * i
+        eps_i = e_uk + delta_e * i
         sigma_i = material.get_stress(eps_i)
         sum_f += area_i * sigma_i
         sum_mom += sum_f * height_i
@@ -204,7 +205,7 @@ def objective_function_e_s(
     alpha = e_c / (e_c - e_s)
     # e_uk = e_s / (d0 * (1 - alpha)) * (height - d0 * alpha)
     # Kaller funksjonen calc_inner_state for å beregne indre tilstand
-    alpha, f_s, f_b, z = section_integrator(
+    alpha, f_b, f_s, z = section_integrator(
         e_ok,
         e_s,
         height,
@@ -223,7 +224,11 @@ def objective_function_e_s(
 
     # Beregner momenter
     mom_s = f_s * z
-    mom_b = f_b * z
+    mom_b = abs(f_b * z)
+    if abs(abs(mom_b) / max(abs(mom_s), 1e-6) - 1) < 0.001:
+        print("konv")
+        print("f_s: ", f_s, "f_b:", f_b)
+        print("alpha:", alpha)
 
     # Returnerer objektfunksjonsverdien og andre relevante verdier
     return mom_s / max(mom_b, 1e-6) - 1.0, alpha, mom_s, mom_b, z
@@ -253,7 +258,7 @@ def objective_function_e_c(
     alpha = e_c / (e_c - e_s)
     e_uk = e_s / (d0 * (1 - alpha)) * (height - d0)
     # Kaller funksjonen calc_inner_state for å beregne indre tilstand
-    alpha, f_s, f_b, z = section_integrator(
+    alpha, f_b, f_s, z = section_integrator(
         e_ok,
         e_uk,
         height,
@@ -272,7 +277,7 @@ def objective_function_e_c(
 
     # Beregner momenter
     mom_s = f_s * z
-    mom_b = f_b * z
+    mom_b = abs(f_b * z)
 
     # Returnerer objektfunksjonsverdien og andre relevante verdier
     return mom_b / max(mom_s, 1e-6) - 1.0, alpha, mom_b, z
@@ -537,7 +542,11 @@ def integration_iterator_ultimate(
     return (alpha, mom_b, e_s, e_c, z)
 
 
-def get_width(height_i: float, var: float) -> float:
+def get_width(a: float, b: float) -> float:
+    return 200.0
+
+
+def get_width2(height_i: float, var: float) -> float:
     """Lager en funksjon som beskriver bredden for enhver høyde"""
     if height_i < 80:
         return 320
@@ -558,7 +567,8 @@ if __name__ == "__main__":
     # sum_f, sum_m, d_bet = integrate_cross_section(0.0035, 0, 0, 200, betong_b35, 300)
     # print(f"Force is {sum_f / 1000:.1f} kN")
 
-    height = np.array(300)
+    # height = np.array(300)
+    height = 300
     as_area_bot = np.array([228 * 3.14, 64 * 3.14])
     as_area_top = np.array([64 * 3.14])
     d_bot = np.array([250, 200])
@@ -566,18 +576,27 @@ if __name__ == "__main__":
     alpha, mom, e_s, e_c, z = integration_iterator_ultimate(
         height, as_area_bot, as_area_top, d_bot, d_top, betong_b35, armering
     )
-    print("alpha:", alpha)
+    print("alpha:", alpha, ". e_c:", e_c, "e_s:", e_s)
+    e_c_uk: float = 0.0026340921430255495
 
     d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(
-        np.array([300, 200]),
-        np.array([300, 300]),
-        300,
+        np.array([250, 200, 50]),
+        np.array([228 * 3.14, 64 * 3.14, 64 * 3.14]),
+        d_bot[0],
         -0.0035,
-        0.00217,
+        0.0026340921430255495,
         0,
         armering,
         betong_b35,
         True,
     )
-    print(d_strekk)
-    print(f_strekk)
+    alpha_d = alpha * d_bot[0]
+    f_bet, m_bet, d_bet = integrate_cross_section(
+        e_c, 0, height - alpha_d, height, betong_b35
+    )  # , var_height)
+
+    print("f_bet:", f_bet)
+    print("Trykk:", f_trykk.sum())
+    print("Strekk:", f_strekk.sum())
+    print("sum trykk:", f_bet - f_trykk.sum())
+# todo! feil summering av trykk og trykk (armering og beotng)

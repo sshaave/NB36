@@ -1,14 +1,18 @@
 from abc import ABC, abstractmethod
+import numpy as np
 
 
 def parabel_rektangel(
     e_c: float, e_c2: float, n: float, e_cu2: float, f_cd: float
 ) -> float:
+    """Brukes til bøyning"""
     # Iht Figur 3.3 og Ligning (3.17)
-    if e_c > e_cu2:
+    if e_c < e_cu2:
         return 0
-    elif e_c >= e_c2:
+    elif e_c <= e_c2:
         return f_cd
+    elif e_c >= 0:
+        return 0.0
     else:
         sigma_c = f_cd * (1 - (1 - e_c / e_c2) ** n)
         return sigma_c
@@ -17,14 +21,15 @@ def parabel_rektangel(
 def sargin_mat_model(
     e_c: float, e_c1: float, e_cu1: float, e_cm: float, f_cm: float
 ) -> float:
+    """Brukes til énaksiell situasjon (søyle)"""
     # Iht Figur 3.2 og Ligning (3.14)
     k = 1.05 * e_cm * abs(e_c1) / f_cm
-    eta = e_c / e_c1
+    eta = abs(e_c / e_c1)
 
-    if e_c > e_cu1 or e_c < 0:
+    if e_c < e_cu1 or e_c > 0:
         return 0
     else:
-        return f_cm * (k * eta - eta**2) / (1 + (k - 2) * eta)
+        return f_cm * (k * eta - eta**2) / (1 + (k - 2) * eta) * np.sign(e_c)
 
 
 class Material(ABC):
@@ -136,9 +141,11 @@ class RebarB500NC(RebarMaterial):
 
 
 class ConcreteMaterial(Material):
+    """Betongmateriale etter NS-EN 1992"""
+
     def __init__(self, f_ck: int, material_model: str = "Sargin") -> None:
-        self.f_ck = f_ck
-        self.f_cd = f_ck / 1.5 * 0.85
+        self.f_ck = -f_ck
+        self.f_cd = self.f_ck / 1.5 * 0.85
         self.f_ctm: float = 0
         self.e_cm: float = 0
         self.p_r: float = 0.2
@@ -152,10 +159,8 @@ class ConcreteMaterial(Material):
 
     def get_stress(self, strain: float) -> float:
         if self.material_model == "Sargin":
-            return sargin_mat_model(
-                -strain, -self.e_cy, -self.e_cu, self.e_cm, self.f_cm
-            )
-        return parabel_rektangel(-strain, -self.e_cy, self.n, -self.e_cu, self.f_cd)
+            return sargin_mat_model(strain, self.e_cy, self.e_cu, self.e_cm, self.f_cm)
+        return parabel_rektangel(strain, self.e_cy, self.n, self.e_cu, self.f_cd)
 
     def get_e_cu(self) -> float:
         return self.e_cu
@@ -225,7 +230,7 @@ class ConcreteMaterial(Material):
             90: (5.0, 4.4e4),
         }
 
-        return properties.get(int(self.f_ck), (0.0, 0.0, 0.0))
+        return properties.get(int(abs(self.f_ck)), (0.0, 0.0))
 
     def get_f_yd(self):
         return 0
@@ -237,5 +242,7 @@ class ConcreteMaterial(Material):
 if __name__ == "__main__":
     betong_b35: ConcreteMaterial = ConcreteMaterial(35, material_model="Parabola")
     print("Hei")
+    f_cd_temp = betong_b35.get_stress(0.0005)
+    print("f_cd_temp:", f_cd_temp)
     # sum_f, sum_m, d_bet = integrate_cross_section(0.0035, 0, 0, 200, betong_b35, 300)
     # print(f"Force is {sum_f / 1000:.1f} kN")

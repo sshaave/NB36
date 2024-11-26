@@ -80,6 +80,7 @@ def evaluate_reinforcement_from_strain(
             # Tension
             d_vec_strekk = np.append(d_vec_strekk, d)
             f_vec_strekk = np.append(f_vec_strekk, spenning * as_)
+
         else:
             # Compression - using adjusted stress to account for displaced concrete area
             if is_inside_concrete:
@@ -108,6 +109,7 @@ def section_integrator(
     a_pre_top: ndarray = None,
     d_pre_bot: ndarray = None,
     d_pre_top: ndarray = None,
+    tendon_material: RebarMaterial = None,
     d_karbon: ndarray = None,
     carbon_vector: ndarray = None,
     carbon_material: CarbonMaterial = None,
@@ -131,8 +133,36 @@ def section_integrator(
     d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(
         d_vector, rebar_vector, d_0, e_ok, e_s_d0, creep, rebar_material, material, True
     )
+    sum_f_strekk_armering = np.sum(f_strekk)
+    sum_f_trykk_armering = np.sum(f_trykk)
+
+    if tendon_material is not None:
+        d_vector_tendon: ndarray = np.concatenate((d_pre_bot, d_pre_top), axis=0)
+        tendon_area_vector: ndarray = np.concatenate((a_pre_bot, a_pre_top), axis=0)
+
+        d_strekk_tendon, f_strekk_tendon_vec, d_trykk_tendon, f_trykk_tendon_vec = (
+            evaluate_reinforcement_from_strain(
+                d_vector_tendon,
+                tendon_area_vector,
+                d_0,
+                e_ok,
+                e_s_d0,
+                0,
+                tendon_material,
+                material,
+                False,
+            )
+        )
+        f_strekk_tendon: float = np.sum(f_strekk_tendon_vec)
+        f_trykk_tendon: float = np.sum(f_trykk_tendon_vec)
+
+    else:
+        f_strekk_tendon: float = 0
+        f_trykk_tendon: float = 0
+        sum_forspenning = 0
+
     if carbon_vector is not None:
-        d_strekk_karbon, f_strekk_karbon, d_trykk_karbon, f_trykk_karbon = (
+        d_strekk_karbon, f_strekk_karbon_vec, d_trykk_karbon, f_trykk_karbon_vec = (
             evaluate_reinforcement_from_strain(
                 d_karbon,
                 carbon_vector,
@@ -145,16 +175,12 @@ def section_integrator(
                 False,
             )
         )
-    else:
-        d_strekk_karbon: ndarray = array([])
-        f_strekk_karbon: ndarray = array([])
-        d_trykk_karbon: ndarray = array([])
-        f_trykk_karbon: ndarray = array([])
+        f_strekk_karbon: float = np.sum(f_strekk_karbon_vec)
+        f_trykk_karbon: float = np.sum(f_trykk_karbon_vec)
 
-    sum_f_strekk_armering = np.sum(f_strekk)
-    sum_f_trykk_armering = np.sum(f_trykk)
-    sum_f_strekk_karbon = np.sum(f_strekk_karbon)
-    sum_f_trykk_karbon = np.sum(f_trykk_karbon)
+    else:
+        f_strekk_karbon: float = 0
+        f_trykk_karbon: float = 0
 
     # Tyngdepunkt for armering
     if sum_f_strekk_armering == 0:
@@ -566,6 +592,7 @@ if __name__ == "__main__":
     betong_b35: ConcreteMaterial = ConcreteMaterial(35, material_model="Parabola")
     armering: RebarMaterial = RebarB500NC()
     spennarmering: RebarMaterial = Tendon()
+    spennarmering.prestressd_to(115)
     # sum_f, sum_m, d_bet = integrate_cross_section(0.0035, 0, 0, 200, betong_b35, 300)
     # print(f"Force is {sum_f / 1000:.1f} kN")
 

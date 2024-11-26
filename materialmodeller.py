@@ -185,6 +185,10 @@ class Tendon(RebarMaterial):
     def get_e_s_rebar(self) -> float:
         return self.e_s
 
+    def get_prestress(self) -> float:
+        """Effektiv forspenningskraft i N"""
+        return self.f_p * 1e3
+
 
 class ConcreteMaterial(Material):
     """Betongmateriale etter NS-EN 1992"""

@@ -140,6 +140,52 @@ class RebarB500NC(RebarMaterial):
         return self.e_s
 
 
+class Tendon(RebarMaterial):
+    """Spennarmering Y1860S7, flytspenning 1860, 7 strands"""
+
+    def __init__(self) -> None:
+        self.f_yk = 1860  # N/mm2 = MPa
+        self.gamma = 1.15
+        self.e_s = 2 * 1e5
+        self.f_yd = self.f_yk / self.gamma
+        self.eps_s_y = self.f_yd / self.e_s
+        self.dia: float = 15.2  # mm
+        self.area: float = 139  # mm2
+        self.f_p: float = 0  # oppspenning i kN
+        self.eps_0: float = 0  # initiell tøyning
+        self.eps_s_y: float = 0.008087
+        self.eps_s_u: float = 0.04
+
+    def prestressd_to(self, force: float):
+        """Sett oppspenningskraften i kN for instansen. Vanligvis 115 kN ish"""
+        self.f_p = force
+        sigma: float = force / self.area
+        self.eps_0 = sigma / self.e_s
+
+    def get_stress(self, strain: float) -> float:
+        """Hent ut spenning fra tøyning. Enhet: N/mm2"""
+        abs_strain: float = abs(strain)
+        if abs_strain > self.eps_s_u:
+            return 0
+        if abs_strain > self.eps_s_y:
+            return self.f_yd * np.sign(strain)
+        return self.e_s * strain
+
+    def get_area(self, vector: np.ndarray) -> np.ndarray:
+        """Gir tilbake areal basert på antall pr lag"""
+        return np.full(vector.shape, self.area)
+
+    def get_f_yd(self) -> float:
+        """Dimensjonerende flytespenning"""
+        return self.f_yd
+
+    def get_eps_s_y(self) -> float:
+        return self.eps_s_y
+
+    def get_e_s_rebar(self) -> float:
+        return self.e_s
+
+
 class ConcreteMaterial(Material):
     """Betongmateriale etter NS-EN 1992"""
 
@@ -163,9 +209,11 @@ class ConcreteMaterial(Material):
         return parabel_rektangel(strain, self.e_cy, self.n, self.e_cu, self.f_cd)
 
     def get_e_cu(self) -> float:
+        """Bruddtøyning (minus i trykk)"""
         return self.e_cu
 
     def get_eps_cu_c_n(self):
+        """Finn bruddtøyning og e_cx"""
         if self.material_model == "Parabola":
             (self.e_cu, self.e_cy, self.n) = self.get_eps_cu2_c2_n()
         elif self.material_model == "Bilinear":

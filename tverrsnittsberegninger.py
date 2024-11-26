@@ -10,6 +10,7 @@ from materialmodeller import (
     RebarMaterial,
     Material,
     RebarB500NC,
+    Tendon,
 )
 
 
@@ -173,7 +174,7 @@ def section_integrator(
 
     # Regner ut bidraget fra armering
     sum_trykkmoment: float = -np.dot(f_trykk, d_trykk) + m_bet
-    sum_trykk: float = -sum_f_trykk_armering + f_bet
+    sum_trykk: float = sum_f_trykk_armering + f_bet
     d_trykk_avg: float = sum_trykkmoment / sum_trykk
 
     z = d_strekk_avg - d_trykk_avg
@@ -564,6 +565,7 @@ def get_width2(height_i: float, var: float) -> float:
 if __name__ == "__main__":
     betong_b35: ConcreteMaterial = ConcreteMaterial(35, material_model="Parabola")
     armering: RebarMaterial = RebarB500NC()
+    spennarmering: RebarMaterial = Tendon()
     # sum_f, sum_m, d_bet = integrate_cross_section(0.0035, 0, 0, 200, betong_b35, 300)
     # print(f"Force is {sum_f / 1000:.1f} kN")
 
@@ -584,7 +586,7 @@ if __name__ == "__main__":
         np.array([228 * 3.14, 64 * 3.14, 64 * 3.14]),
         d_bot[0],
         -0.0035,
-        0.0026340921430255495,
+        e_s,
         0,
         armering,
         betong_b35,
@@ -598,5 +600,5 @@ if __name__ == "__main__":
     print("f_bet:", f_bet)
     print("Trykk:", f_trykk.sum())
     print("Strekk:", f_strekk.sum())
-    print("sum trykk:", f_bet - f_trykk.sum())
+    # print("sum trykk:", f_bet - f_trykk.sum())
 # todo! feil summering av trykk og trykk (armering og beotng)

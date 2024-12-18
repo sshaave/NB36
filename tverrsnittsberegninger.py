@@ -21,8 +21,9 @@ def integrate_cross_section(
     height_total: float,
     material: ConcreteMaterial,
     var_height: float = None,
-) -> Tuple[float, float, float]:
+) -> Tuple[float, float]:
     """Integrere opp betongarealet"""
+    # d_alpha_d er avstanden fra trykkresultanten til stedet nøytralaksen
     sum_f = 0
     sum_mom = 0
     height_compression = height_total - height_ec_zero
@@ -30,7 +31,7 @@ def integrate_cross_section(
     iterations = 100
     delta_e = (e_ok - e_uk) / iterations
     delta_h = height_compression / iterations
-    for i in range(iterations):
+    for i in range(1, iterations):
         height_i = height_ec_zero + delta_h * i
         if var_height is None:
             width_i = get_width(height_i, 0)
@@ -38,14 +39,15 @@ def integrate_cross_section(
             width_i = get_width(height_i, var_height)
         area_i = width_i * delta_h
 
-        eps_i = e_uk + delta_e * i
+        eps_i = e_uk + delta_e * (i-0.5)
         sigma_i = material.get_stress(eps_i)
-        sum_f += area_i * sigma_i
-        sum_mom += sum_f * height_i
+        f_i = area_i * sigma_i
+        sum_f += f_i
+        sum_mom += f_i * (height_i - height_ec_zero - delta_h / 2)
     sum_mom = abs(sum_mom)
-    d = sum_mom / sum_f
+    d_alpha_d = sum_mom / abs(sum_f)
 
-    return sum_f, sum_mom, d
+    return sum_f, d_alpha_d
 
 
 def evaluate_reinforcement_from_strain(
@@ -68,8 +70,17 @@ def evaluate_reinforcement_from_strain(
     f_vec_strekk: ndarray = array([])
     d_vec_trykk: ndarray = array([])
     f_vec_trykk: ndarray = array([])
+    
+    if steel_material.isinstance(Tendon):
+        assert isinstance(steel_material, Tendon)
+        antall_vector = steel_material.get_antall_vec(a_vector)
+        f_p = steel_material.get_prestress() # forspenningskraft
+    else:
+        antall_vector = np.zeros(a_vector.shape)
+        f_p = 0
 
-    for d, as_ in zip(d_vector, a_vector):
+
+    for d, as_, antall in zip(d_vector, a_vector, antall_vector):
         toyning = e_c + (e_s - e_c) / d_0 * d
         if toyning >= 0:
             spenning = f_yd if toyning >= e_s_flyt else emod_s * toyning
@@ -79,7 +90,12 @@ def evaluate_reinforcement_from_strain(
         if toyning >= 0:
             # Tension
             d_vec_strekk = np.append(d_vec_strekk, d)
-            f_vec_strekk = np.append(f_vec_strekk, spenning * as_)
+            if steel_material.isinstance(Tendon):
+                assert isinstance(steel_material, Tendon)
+                f_vec_strekk = np.append(f_vec_strekk, spenning * as_ + antall * f_p)
+            else:
+                f_vec_strekk = np.append(f_vec_strekk, spenning * as_)
+
 
         else:
             # Compression - using adjusted stress to account for displaced concrete area
@@ -88,8 +104,15 @@ def evaluate_reinforcement_from_strain(
             else:
                 concrete_spenning = 0
             justert_spenning = spenning + concrete_spenning
+
+            # Sjekker om det er spenningarmering, må i så fall legge til forspenningskraften
             d_vec_trykk = np.append(d_vec_trykk, d)
-            f_vec_trykk = np.append(f_vec_trykk, justert_spenning * as_)
+            if steel_material.isinstance(Tendon):
+                assert isinstance(steel_material, Tendon)
+                f_vec_trykk = np.append(f_vec_trykk, justert_spenning * as_ + antall * f_p)
+            else:
+                f_vec_trykk = np.append(f_vec_trykk, justert_spenning * as_)
+
 
     return d_vec_strekk, f_vec_strekk, d_vec_trykk, f_vec_trykk
 
@@ -113,7 +136,7 @@ def section_integrator(
     d_karbon: ndarray = None,
     carbon_vector: ndarray = None,
     carbon_material: CarbonMaterial = None,
-):
+) -> Tuple[float, float, float, float]:
     """Integrerer opp tverrsnittet"""
     # Starter med å finne alpha fra tøyningene. Antar at tøyninger som gir trykk er positive, og strekk negativt.
     # delta_eps: float = (e_ok - e_uk) / height
@@ -123,7 +146,7 @@ def section_integrator(
     # e_s_d0: float = e_uk + delta_eps * d_0
     e_s_d0 = e_s
     alpha: float = min(max(e_ok / (e_ok - e_s_d0), 0), 1)
-    if alpha == 0 or alpha == 1:
+    if alpha in (0, 1):
         print("feil i alpha", alpha)
 
     d_vector = np.concatenate((d_bot, d_top), axis=0)
@@ -159,7 +182,6 @@ def section_integrator(
     else:
         f_strekk_tendon: float = 0
         f_trykk_tendon: float = 0
-        sum_forspenning = 0
 
     if carbon_vector is not None:
         d_strekk_karbon, f_strekk_karbon_vec, d_trykk_karbon, f_trykk_karbon_vec = (
@@ -194,14 +216,17 @@ def section_integrator(
     e_c_uk = 0.0  # bøyning, en del vil alltid være i strekk så setter denne 0 for integralet sin del
 
     height_uk = height - alpha_d
-    f_bet, m_bet, d_bet = integrate_cross_section(
+    f_bet, d_alpha_d = integrate_cross_section(
         e_ok, e_c_uk, height_uk, height, material
     )  # , var_height)
+    d_bet = alpha_d - d_alpha_d
 
-    # Regner ut bidraget fra armering
-    sum_trykkmoment: float = -np.dot(f_trykk, d_trykk) + m_bet
+    # Regner ut bidraget fra armering. Trykkmoment regnes om overkant
+    sum_trykkmoment: float = -np.dot(f_trykk, d_trykk) + f_bet * d_bet
     sum_trykk: float = sum_f_trykk_armering + f_bet
-    d_trykk_avg: float = sum_trykkmoment / sum_trykk
+
+    # d_trykk_avg er målt fra OK
+    d_trykk_avg: float = abs(sum_trykkmoment / sum_trykk)
 
     z = d_strekk_avg - d_trykk_avg
 
@@ -605,8 +630,8 @@ if __name__ == "__main__":
     alpha, mom, e_s, e_c, z = integration_iterator_ultimate(
         height, as_area_bot, as_area_top, d_bot, d_top, betong_b35, armering
     )
-    print("alpha:", alpha, ". e_c:", e_c, "e_s:", e_s)
-    e_c_uk: float = 0.0026340921430255495
+    # print("alpha:", alpha, ". e_c:", e_c, "e_s:", e_s)
+    # e_c_uk: float = 0.0026340921430255495
 
     d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(
         np.array([250, 200, 50]),
@@ -620,12 +645,15 @@ if __name__ == "__main__":
         True,
     )
     alpha_d = alpha * d_bot[0]
-    f_bet, m_bet, d_bet = integrate_cross_section(
+    f_bet, d_bet = integrate_cross_section(
         e_c, 0, height - alpha_d, height, betong_b35
     )  # , var_height)
 
     print("f_bet:", f_bet)
     print("Trykk:", f_trykk.sum())
     print("Strekk:", f_strekk.sum())
+
+    alpha, sum_trykk, sum_strekk_arm, z = section_integrator(-0.0035, e_s, height, betong_b35, armering, as_area_bot, as_area_top, d_bot, d_top, 0)
+    print(f"alpha: {alpha}. Sum_trykk: {sum_trykk}. Sum_stress_arm: {sum_strekk_arm}. z: {z}")
+
     # print("sum trykk:", f_bet - f_trykk.sum())
-# todo! feil summering av trykk og trykk (armering og beotng)

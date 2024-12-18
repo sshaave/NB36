@@ -175,6 +175,10 @@ class Tendon(RebarMaterial):
         """Gir tilbake areal basert på antall pr lag"""
         return np.full(vector.shape, self.area)
 
+    def get_antall_vec(self, vector: np.ndarray) -> np.ndarray:
+        """Gir tilbake antall i hvert lag basert på areal"""
+        return np.floor(vector / self.area)
+    
     def get_f_yd(self) -> float:
         """Dimensjonerende flytespenning"""
         return self.f_yd

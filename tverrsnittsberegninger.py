@@ -39,7 +39,7 @@ def integrate_cross_section(
             width_i = get_width(height_i, var_height)
         area_i = width_i * delta_h
 
-        eps_i = e_uk + delta_e * (i-0.5)
+        eps_i = e_uk + delta_e * (i - 0.5)
         sigma_i = material.get_stress(eps_i)
         f_i = area_i * sigma_i
         sum_f += f_i
@@ -70,15 +70,14 @@ def evaluate_reinforcement_from_strain(
     f_vec_strekk: ndarray = array([])
     d_vec_trykk: ndarray = array([])
     f_vec_trykk: ndarray = array([])
-    
-    if steel_material.isinstance(Tendon):
+
+    if isinstance(steel_material, Tendon):
         assert isinstance(steel_material, Tendon)
         antall_vector = steel_material.get_antall_vec(a_vector)
-        f_p = steel_material.get_prestress() # forspenningskraft
+        f_p = steel_material.get_prestress()  # forspenningskraft
     else:
         antall_vector = np.zeros(a_vector.shape)
         f_p = 0
-
 
     for d, as_, antall in zip(d_vector, a_vector, antall_vector):
         toyning = e_c + (e_s - e_c) / d_0 * d
@@ -90,12 +89,13 @@ def evaluate_reinforcement_from_strain(
         if toyning >= 0:
             # Tension
             d_vec_strekk = np.append(d_vec_strekk, d)
-            if steel_material.isinstance(Tendon):
+
+            # Sjekker om det er spennarmering, og må legge til spennkraft
+            if isinstance(steel_material, Tendon):
                 assert isinstance(steel_material, Tendon)
                 f_vec_strekk = np.append(f_vec_strekk, spenning * as_ + antall * f_p)
             else:
                 f_vec_strekk = np.append(f_vec_strekk, spenning * as_)
-
 
         else:
             # Compression - using adjusted stress to account for displaced concrete area
@@ -107,12 +107,13 @@ def evaluate_reinforcement_from_strain(
 
             # Sjekker om det er spenningarmering, må i så fall legge til forspenningskraften
             d_vec_trykk = np.append(d_vec_trykk, d)
-            if steel_material.isinstance(Tendon):
+            if isinstance(steel_material, Tendon):
                 assert isinstance(steel_material, Tendon)
-                f_vec_trykk = np.append(f_vec_trykk, justert_spenning * as_ + antall * f_p)
+                f_vec_trykk = np.append(
+                    f_vec_trykk, justert_spenning * as_ + antall * f_p
+                )
             else:
                 f_vec_trykk = np.append(f_vec_trykk, justert_spenning * as_)
-
 
     return d_vec_strekk, f_vec_strekk, d_vec_trykk, f_vec_trykk
 
@@ -653,7 +654,34 @@ if __name__ == "__main__":
     print("Trykk:", f_trykk.sum())
     print("Strekk:", f_strekk.sum())
 
-    alpha, sum_trykk, sum_strekk_arm, z = section_integrator(-0.0035, e_s, height, betong_b35, armering, as_area_bot, as_area_top, d_bot, d_top, 0)
-    print(f"alpha: {alpha}. Sum_trykk: {sum_trykk}. Sum_stress_arm: {sum_strekk_arm}. z: {z}")
+    alpha, sum_trykk, sum_strekk_arm, z = section_integrator(
+        -0.0035,
+        e_s,
+        height,
+        betong_b35,
+        armering,
+        as_area_bot,
+        as_area_top,
+        d_bot,
+        d_top,
+        0,
+    )
+    print(
+        f"alpha: {alpha}. Sum_trykk: {sum_trykk}. Sum_stress_arm: {sum_strekk_arm}. z: {z}"
+    )
 
     # print("sum trykk:", f_bet - f_trykk.sum())
+    antall_vector = np.array([2])
+    area_vector = spennarmering.get_area(antall_vector)
+    d_strekk_f, f_strekk_f, d_trykk_f, f_trykk_f = evaluate_reinforcement_from_strain(
+        np.array([250]),
+        area_vector,
+        250,
+        betong_b35.get_e_cu(),
+        0.002,
+        0,
+        spennarmering,
+        betong_b35,
+        True,
+    )
+    print(f"f_strekk:f: {f_strekk_f}")

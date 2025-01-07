@@ -166,7 +166,7 @@ def section_integrator(
             tendon_area_vector: ndarray = np.concatenate((a_pre_bot, a_pre_top), axis=0)
         else:
             d_vector_tendon: ndarray = d_pre_bot
-            tendon_area_vector:ndarray = a_pre_bot
+            tendon_area_vector: ndarray = a_pre_bot
 
         d_strekk_tendon, f_strekk_tendon_vec, d_trykk_tendon, f_trykk_tendon_vec = (
             evaluate_reinforcement_from_strain(
@@ -183,13 +183,17 @@ def section_integrator(
         )
         f_strekk_tendon: float = np.sum(f_strekk_tendon_vec)
         f_trykk_tendon: float = np.sum(f_trykk_tendon_vec)
-        d_strekk_tendon_avg: float = np.dot(f_strekk_tendon_vec, d_strekk_tendon) / f_strekk_tendon
-        
+        d_strekk_tendon_avg: float = (
+            np.dot(f_strekk_tendon_vec, d_strekk_tendon) / f_strekk_tendon
+        )
+
         # Må sjekke om trykk er 0 før deling
         if f_trykk_tendon == 0:
             d_trykk_tendon_avg: float = 0
         else:
-            d_trykk_tendon_avg: float = np.dot(f_trykk_tendon_vec, d_trykk_tendon) / f_trykk_tendon
+            d_trykk_tendon_avg: float = (
+                np.dot(f_trykk_tendon_vec, d_trykk_tendon) / f_trykk_tendon
+            )
 
     else:
         f_strekk_tendon: float = 0
@@ -216,7 +220,7 @@ def section_integrator(
         m_strekk_karbon: float = np.dot(f_strekk_karbon_vec, d_strekk_karbon)
         m_trykk_karbon: float = np.dot(f_trykk_karbon_vec, d_trykk_karbon)
         d_strekk_karbon_avg: float = m_strekk_karbon / f_strekk_karbon
-        
+
         # Må sjekke om trykk er 0 før deling
         if f_trykk_karbon == 0:
             d_trykk_karbon_avg: float = 0
@@ -234,10 +238,14 @@ def section_integrator(
         print("sum_f_ er 0")
     if sum_f_strekk_armering > 0:
         d_strekk_rebar: float = np.dot(f_strekk, d_strekk) / sum_f_strekk_armering
-        d_strekk_avg: float = (d_strekk_rebar * sum_f_strekk_armering + d_strekk_tendon_avg * f_strekk_tendon + d_strekk_karbon_avg * f_strekk_karbon) / (sum_f_strekk_armering + f_strekk_tendon + f_strekk_karbon)
+        d_strekk_avg: float = (
+            d_strekk_rebar * sum_f_strekk_armering
+            + d_strekk_tendon_avg * f_strekk_tendon
+            + d_strekk_karbon_avg * f_strekk_karbon
+        ) / (sum_f_strekk_armering + f_strekk_tendon + f_strekk_karbon)
     else:
         d_strekk_avg: float = 0
-    
+
     # Summerer strekkbidragene
     sum_strekk = sum_f_strekk_armering + f_strekk_tendon + f_strekk_karbon
 
@@ -246,14 +254,18 @@ def section_integrator(
 
     height_uk = height - alpha_d
     f_bet, d_alpha_d = integrate_cross_section(
-        e_ok, e_c_uk, height_uk, height, material
+        e_ok, e_c_uk, height_uk, height, material, var_height=1180
     )  # , var_height)
     d_bet = alpha_d - d_alpha_d
 
-
     # Regner ut bidraget fra armering. Trykkmoment regnes om overkant
-    sum_trykkmoment: float = np.dot(f_trykk, d_trykk) + f_trykk_tendon * d_trykk_tendon_avg + f_trykk_karbon * d_trykk_karbon_avg + f_bet * d_bet
-    sum_trykk: float = sum_f_trykk_armering + f_trykk_tendon + f_trykk_karbon + f_bet 
+    sum_trykkmoment: float = (
+        np.dot(f_trykk, d_trykk)
+        + f_trykk_tendon * d_trykk_tendon_avg
+        + f_trykk_karbon * d_trykk_karbon_avg
+        + f_bet * d_bet
+    )
+    sum_trykk: float = sum_f_trykk_armering + f_trykk_tendon + f_trykk_karbon + f_bet
 
     # d_trykk_avg er målt fra OK
     d_trykk_avg: float = abs(sum_trykkmoment / sum_trykk)
@@ -356,11 +368,11 @@ def objective_function_e_c(
         as_top,
         d_bot,
         d_top,
-        a_pre_bot,
-        a_pre_top,
-        d_pre_bot,
-        d_pre_top,
         creep_eff,
+        a_pre_bot=a_pre_bot,
+        a_pre_top=a_pre_top,
+        d_pre_bot=d_pre_bot,
+        d_pre_top=d_pre_top,
         tendon_material=rebar_pre_material,
         carbon_material=carbon_material,
     )
@@ -610,7 +622,7 @@ def integration_iterator_ultimate(
             d_pre_top,
             initial_guess,
             creep_eff,
-            rebar_pre_material=rebar_material,
+            rebar_pre_material=rebar_pre_material,
             carbon_material=carbon_material,
         )
     else:
@@ -639,19 +651,19 @@ def integration_iterator_ultimate(
             initial_guess,
             e_cu,
             creep_eff,
-            rebar_pre_material,
-            carbon_material,
+            rebar_pre_material=rebar_pre_material,
+            carbon_material=carbon_material,
         )
 
     return (alpha, mom_b, e_s, e_c, z)
 
 
-def get_width(_a: float, _b: float) -> float:
+def get_width2(_a: float, _b: float) -> float:
     """Dummy, men fungerer for konstant bredde"""
     return 200.0
 
 
-def get_width2(height_i: float, var: float) -> float:
+def get_width(height_i: float, var: float) -> float:
     """Lager en funksjon som beskriver bredden for enhver høyde"""
     if height_i < 80:
         return 320
@@ -667,22 +679,55 @@ def get_width2(height_i: float, var: float) -> float:
 
 
 if __name__ == "__main__":
-    betong_b35: ConcreteMaterial = ConcreteMaterial(35, material_model="Parabola")
+    betong_b35: ConcreteMaterial = ConcreteMaterial(55, material_model="Parabola")
     armering: RebarMaterial = RebarB500NC()
     spennarmering: RebarMaterial = Tendon()
-    spennarmering.prestressd_to(25)
-    antall_vector = np.array([2, 2])
-    area_vector = spennarmering.get_area(antall_vector)
-    
+    spennarmering.prestressd_to(100)
+    antall_vector_ok = np.array([4])
+    antall_vector_uk = np.array([4, 6, 4, 2])
+    area_vector_ok = spennarmering.get_area(antall_vector_ok)
+    area_vector_uk = spennarmering.get_area(antall_vector_uk)
 
-    height = 300
-    as_area_bot = np.array([228 * 3.14, 64 * 3.14])
-    as_area_top = np.array([64 * 3.14])
-    d_bot = np.array([250, 200])
-    d_top = np.array([50])
-    d_pre_bot = np.array([250, 200])
-    alpha, mom, e_s, e_c, z = integration_iterator_ultimate(height, as_area_bot, as_area_top, d_bot, d_top, betong_b35, armering, rebar_pre_material=spennarmering, a_pre_bot=area_vector, d_pre_bot=d_pre_bot)
+    height = 1600
+    as_area_bot = np.array([0])
+    as_area_top = np.array([200 * 3.14])
+    d_bot = np.array([0])
+    d_top = np.array([40])
+    d_pre_bot = np.array([1560, 1520, 1480, 1440])
+    d_pre_top = np.array([40])
+    """
+    alpha, mom, e_s, e_c, z = integration_iterator_ultimate(
+        height,
+        as_area_bot,
+        as_area_top,
+        d_bot,
+        d_top,
+        betong_b35,
+        armering,
+        rebar_pre_material=spennarmering,
+        a_pre_bot=area_vector_uk,
+        d_pre_bot=d_pre_bot,
+        # a_pre_top=area_vector_ok,
+        # d_pre_top=d_pre_top,
+    )
     print("alpha:", alpha, "mom:", mom / 1e6, "e_c:", e_c, "e_s:", e_s)
+    """
+    al1, trykk1, strekk1, z1 = section_integrator(
+        -0.0035,
+        0.0024560296815103197,
+        height,
+        betong_b35,
+        armering,
+        as_area_bot,
+        as_area_top,
+        d_bot,
+        d_top,
+        0,
+        a_pre_bot=area_vector_uk,
+        d_pre_bot=d_pre_bot,
+        tendon_material=spennarmering,
+    )
+    print("al1:", al1, "trykk1:", trykk1, "strekk1:", strekk1, "z1:", z1)
 
 
 def testing_strain_part():

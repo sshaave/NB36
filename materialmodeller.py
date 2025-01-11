@@ -123,6 +123,7 @@ class RebarB500NC(RebarMaterial):
         self.e_s = 2 * 1e5
         self.f_yd = self.f_yk / self.gamma
         self.eps_s_y = self.f_yd / self.e_s
+        self.eps_ultimate = 2 / 100
 
     def get_stress(self, strain: float) -> float:
         if strain < 0:
@@ -138,6 +139,9 @@ class RebarB500NC(RebarMaterial):
 
     def get_e_s_rebar(self) -> float:
         return self.e_s
+
+    def get_eps_ultimate(self) -> float:
+        return self.eps_ultimate
 
 
 class Tendon(RebarMaterial):

@@ -141,7 +141,7 @@ def section_integrator(
     """Integrerer opp tverrsnittet"""
     # Starter med å finne alpha fra tøyningene. Antar at tøyninger som gir trykk er positive, og strekk negativt.
     # delta_eps: float = (e_ok - e_uk) / height
-    d_0 = d_bot[0]
+    d_0 = max(d_bot[0], d_pre_bot[0])
     delta_eps: float = (e_s - e_ok) / d_0
     e_uk: float = e_s + delta_eps * (height - d_0)
     # e_s_d0: float = e_uk + delta_eps * d_0
@@ -157,8 +157,10 @@ def section_integrator(
     d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(
         d_vector, rebar_vector, d_0, e_ok, e_s_d0, creep, rebar_material, material, True
     )
+
     sum_f_strekk_armering = np.sum(f_strekk)
     sum_f_trykk_armering = np.sum(f_trykk)
+    d_strekk_rebar: float = np.dot(f_strekk, d_strekk) / max(sum_f_strekk_armering, 1)
 
     if tendon_material is not None:
         if d_pre_top is not None:
@@ -234,10 +236,9 @@ def section_integrator(
         d_trykk_karbon_avg: float = 0
 
     # Tyngdepunkt for armering
-    if sum_f_strekk_armering == 0:
+    if sum_f_strekk_armering == 0 and f_strekk_tendon == 0:
         print("sum_f_ er 0")
-    if sum_f_strekk_armering > 0:
-        d_strekk_rebar: float = np.dot(f_strekk, d_strekk) / sum_f_strekk_armering
+    if sum_f_strekk_armering > 0 or f_strekk_tendon > 0:
         d_strekk_avg: float = (
             d_strekk_rebar * sum_f_strekk_armering
             + d_strekk_tendon_avg * f_strekk_tendon
@@ -297,7 +298,6 @@ def objective_function_e_s(
     Metode som kaller "calc_inner_state" og returnerer riktig versjon av M / M.
     """
     e_ok = e_c
-    d0 = d_bot[0]
     alpha = e_c / (e_c - e_s)
     # e_uk = e_s / (d0 * (1 - alpha)) * (height - d0 * alpha)
     # Kaller funksjonen calc_inner_state for å beregne indre tilstand
@@ -354,7 +354,7 @@ def objective_function_e_c(
     Metode som kaller "calc_inner_state" og returnerer riktig versjon av M / M.
     """
     e_ok = e_c
-    d0 = d_bot[0]
+    d0 = max(d_bot[0], d_pre_bot[0])
     alpha = e_c / (e_c - e_s)
     e_uk = e_s / (d0 * (1 - alpha)) * (height - d0)
     # Kaller funksjonen calc_inner_state for å beregne indre tilstand
@@ -464,7 +464,7 @@ def newton_optimize_e_s(
         e_s -= step_size * f_value / f_prime
 
         # Sjekk om tøyningen er altfor stor
-        if e_s > 0.016:
+        if e_s > 0.02:
             if mom_s < mom_b:
                 return -1.0, -1.0, -1.0, -1.0
             e_s = 0.016
@@ -511,6 +511,7 @@ def newton_optimize_e_c(
     iterations = 0
     h = 1e-8
     step_size = 1.0
+    fortegn_tracker = [0, 1.0, -1.0]
 
     while iterations <= max_iterations:
         iterations += 1
@@ -535,6 +536,7 @@ def newton_optimize_e_c(
             carbon_material=carbon_material,
         )
         abs_f_value = abs(f_value)
+        fortegn_tracker[iterations % 3] = np.sign(f_value)
 
         f_value2, _, _, _ = objective_function_e_c(
             e_s,
@@ -559,15 +561,29 @@ def newton_optimize_e_c(
 
         # Justerer verdi i henhold til Newton-Raphson-iterasjonen
         if abs_f_value > 1e-6:
+            if iterations == 17:
+                step_size *= 0.25
             e_c -= step_size * f_value / f_prime
 
             # Sjekk om tøyningen er altfor stor
             if e_c < e_cu:
                 e_c = e_cu
                 step_size *= 0.5  # Kan kanskje på sikt fjerne step_size.
+            elif e_c > 0:
+                step_size *= 0.85
+                e_c = -0.0001
+            elif fortegn_tracker in (
+                [1.0, -1.0, 1.0],
+                [-1.0, 1.0, -1.0],
+            ):
+                step_size *= 0.95
+                fortegn_tracker = [True, True, True]
+                max_iterations = 35
+                print("hei")
 
         # Sjekk mot konvergenskriteriet
         if abs_f_value < tolerance:
+            print("Iteration: ", iterations)
             return e_c, alpha, mom_b, z
 
     # Hvis maks antall iterasjoner er nådd uten konvergens
@@ -606,7 +622,7 @@ def integration_iterator_ultimate(
     sum_as_top = np.sum(as_area_top)
 
     alpha, mom_b, z = 0, 0, 0
-    if sum_as_bot > sum_as_top:
+    if sum_as_bot > sum_as_top or rebar_pre_material is not None:
         e_s, alpha, mom_b, z = newton_optimize_e_s(
             e_c,
             height,
@@ -628,12 +644,12 @@ def integration_iterator_ultimate(
     else:
         e_s = -1.0
 
-    print("tester--------------")
+    print("Justerer e_c")
     # Sjekker om første iterasjon var vellykket
     if e_s == -1.0:
         # Betongtøyningen kan ikke nå e_cu. Setter en armeringstøyning og finner
         # betongtøyning som gir likevekt i tverrsnittet (e_c < e_cu).
-        e_s = initial_guess
+        e_s = 0.02
         initial_guess = -0.00117
         e_c, alpha, mom_b, z = newton_optimize_e_c(
             e_s,
@@ -695,7 +711,7 @@ if __name__ == "__main__":
     d_top = np.array([40])
     d_pre_bot = np.array([1560, 1520, 1480, 1440])
     d_pre_top = np.array([40])
-    """
+
     alpha, mom, e_s, e_c, z = integration_iterator_ultimate(
         height,
         as_area_bot,
@@ -727,7 +743,9 @@ if __name__ == "__main__":
         d_pre_bot=d_pre_bot,
         tendon_material=spennarmering,
     )
+     
     print("al1:", al1, "trykk1:", trykk1, "strekk1:", strekk1, "z1:", z1)
+    """
 
 
 def testing_strain_part():

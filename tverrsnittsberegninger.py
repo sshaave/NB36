@@ -9,6 +9,7 @@ from materialmodeller import (
     ConcreteMaterial,
     RebarMaterial,
     Material,
+    RebarB400NC,
     RebarB500NC,
     Tendon,
 )
@@ -56,46 +57,29 @@ def evaluate_reinforcement_from_strain(
     d_0: float,
     e_c: float,
     e_s: float,
-    creep_eff: float,
     steel_material: Material,
     concrete_material: ConcreteMaterial,
     is_inside_concrete: bool,
 ) -> Tuple[ndarray, ndarray, ndarray, ndarray]:
     """Krefter i armering basert på tøyninger. Behandler alle som punkter og ikke areal"""
-    f_yd = steel_material.get_f_yd()
-    e_s_flyt = steel_material.get_eps_s_y()
-    emod_s = steel_material.get_e_s_rebar()  # N/mm2
-
     d_vec_strekk: ndarray = array([])
     f_vec_strekk: ndarray = array([])
     d_vec_trykk: ndarray = array([])
     f_vec_trykk: ndarray = array([])
+    eps_f_p = 0
 
     if isinstance(steel_material, Tendon):
         assert isinstance(steel_material, Tendon)
-        antall_vector = steel_material.get_antall_vec(a_vector)
-        f_p = steel_material.get_prestress()  # forspenningskraft
-    else:
-        antall_vector = np.zeros(a_vector.shape)
-        f_p = 0
+        eps_f_p = steel_material.get_eps_f_p()
 
-    for d, as_, antall in zip(d_vector, a_vector, antall_vector):
-        toyning = e_c + (e_s - e_c) / d_0 * d
-        if toyning >= 0:
-            spenning = f_yd if toyning >= e_s_flyt else emod_s * toyning
-        else:
-            spenning = -f_yd if toyning <= -e_s_flyt else emod_s * toyning
+    for d, as_ in zip(d_vector, a_vector):
+        toyning = e_c + (e_s - e_c) / d_0 * d + eps_f_p
+        spenning = steel_material.get_stress(toyning)
 
         if toyning >= 0:
             # Tension
             d_vec_strekk = np.append(d_vec_strekk, d)
-
-            # Sjekker om det er spennarmering, og må legge til spennkraft
-            if isinstance(steel_material, Tendon):
-                assert isinstance(steel_material, Tendon)
-                f_vec_strekk = np.append(f_vec_strekk, spenning * as_ + antall * f_p)
-            else:
-                f_vec_strekk = np.append(f_vec_strekk, spenning * as_)
+            f_vec_strekk = np.append(f_vec_strekk, spenning * as_)
 
         else:
             # Compression - using adjusted stress to account for displaced concrete area
@@ -107,13 +91,7 @@ def evaluate_reinforcement_from_strain(
 
             # Sjekker om det er spenningarmering, må i så fall legge til forspenningskraften
             d_vec_trykk = np.append(d_vec_trykk, d)
-            if isinstance(steel_material, Tendon):
-                assert isinstance(steel_material, Tendon)
-                f_vec_trykk = np.append(
-                    f_vec_trykk, justert_spenning * as_ + antall * f_p
-                )
-            else:
-                f_vec_trykk = np.append(f_vec_trykk, justert_spenning * as_)
+            f_vec_trykk = np.append(f_vec_trykk, justert_spenning * as_)
 
     return d_vec_strekk, f_vec_strekk, d_vec_trykk, f_vec_trykk
 
@@ -155,7 +133,7 @@ def section_integrator(
 
     # Ønsker å finne hvilke lag som har strekk og trykk (og størrelse på kreftene)
     d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(
-        d_vector, rebar_vector, d_0, e_ok, e_s_d0, creep, rebar_material, material, True
+        d_vector, rebar_vector, d_0, e_ok, e_s_d0, rebar_material, material, True
     )
 
     sum_f_strekk_armering = np.sum(f_strekk)
@@ -177,7 +155,6 @@ def section_integrator(
                 d_0,
                 e_ok,
                 e_s_d0,
-                0,
                 tendon_material,
                 material,
                 False,
@@ -211,7 +188,6 @@ def section_integrator(
                 d_0,
                 e_ok,
                 e_s_d0,
-                0,
                 carbon_material,
                 material,
                 False,
@@ -579,7 +555,6 @@ def newton_optimize_e_c(
                 step_size *= 0.95
                 fortegn_tracker = [True, True, True]
                 max_iterations = 35
-                print("hei")
 
         # Sjekk mot konvergenskriteriet
         if abs_f_value < tolerance:
@@ -649,7 +624,7 @@ def integration_iterator_ultimate(
     if e_s == -1.0:
         # Betongtøyningen kan ikke nå e_cu. Setter en armeringstøyning og finner
         # betongtøyning som gir likevekt i tverrsnittet (e_c < e_cu).
-        e_s = 0.02
+        e_s = 0.0333
         initial_guess = -0.00117
         e_c, alpha, mom_b, z = newton_optimize_e_c(
             e_s,
@@ -695,18 +670,19 @@ def get_width(height_i: float, var: float) -> float:
 
 
 if __name__ == "__main__":
-    betong_b35: ConcreteMaterial = ConcreteMaterial(55, material_model="Parabola")
-    armering: RebarMaterial = RebarB500NC()
+    betong_b45: ConcreteMaterial = ConcreteMaterial(45, material_model="Parabola")
+    armering: RebarMaterial = RebarB400NC()
+    # armering: RebarMaterial = RebarB500NC()
     spennarmering: RebarMaterial = Tendon()
-    spennarmering.prestressd_to(100)
-    antall_vector_ok = np.array([4])
+    spennarmering.prestressd_to(120)
+    antall_vector_ok = np.array([2])
     antall_vector_uk = np.array([4, 6, 4, 2])
     area_vector_ok = spennarmering.get_area(antall_vector_ok)
     area_vector_uk = spennarmering.get_area(antall_vector_uk)
 
     height = 1600
     as_area_bot = np.array([0])
-    as_area_top = np.array([200 * 3.14])
+    as_area_top = np.array([(4 * 64 + 2 * 36) * 3.14])
     d_bot = np.array([0])
     d_top = np.array([40])
     d_pre_bot = np.array([1560, 1520, 1480, 1440])
@@ -718,7 +694,7 @@ if __name__ == "__main__":
         as_area_top,
         d_bot,
         d_top,
-        betong_b35,
+        betong_b45,
         armering,
         rebar_pre_material=spennarmering,
         a_pre_bot=area_vector_uk,

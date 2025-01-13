@@ -84,7 +84,9 @@ class CarbonFiberDummy(CarbonMaterial):
         self.eps_s_y = self.f_yd / self.e_s
 
     def get_stress(self, strain: float) -> float:
-        return strain * self.e_s
+        if strain < 0:
+            return min(strain * self.e_s, self.f_yd)
+        return max(strain * self.e_s, self.f_yd)
 
     def get_f_yd(self) -> float:
         """ " Dimensjonerende flytespenning"""
@@ -144,21 +146,51 @@ class RebarB500NC(RebarMaterial):
         return self.eps_ultimate
 
 
-class Tendon(RebarMaterial):
-    """Spennarmering Y1860S7, flytspenning 1860, 7 strands"""
+class RebarB400NC(RebarMaterial):
+    """Vanlig armering"""
 
     def __init__(self) -> None:
-        self.f_yk = 1860  # N/mm2 = MPa
+        self.f_yk = 400
         self.gamma = 1.15
         self.e_s = 2 * 1e5
         self.f_yd = self.f_yk / self.gamma
         self.eps_s_y = self.f_yd / self.e_s
-        self.dia: float = 15.2  # mm
-        self.area: float = 139  # mm2
+        self.eps_ultimate = 2 / 100
+
+    def get_stress(self, strain: float) -> float:
+        if strain < 0:
+            return min(strain * self.e_s, self.f_yd)
+        return max(strain * self.e_s, self.f_yd)
+
+    def get_f_yd(self) -> float:
+        """Dimensjonerende flytespenning"""
+        return self.f_yd
+
+    def get_eps_s_y(self) -> float:
+        return self.eps_s_y
+
+    def get_e_s_rebar(self) -> float:
+        return self.e_s
+
+    def get_eps_ultimate(self) -> float:
+        return self.eps_ultimate
+
+
+class Tendon(RebarMaterial):
+    """Spennarmering Y1860S7, flytspenning 1860, 7 strands"""
+
+    def __init__(self) -> None:
+        self.f_yk = 1700  # N/mm2 = MPa
+        self.gamma = 1.15
+        self.e_s = 195000
+        self.f_yd = self.f_yk / self.gamma
+        self.eps_s_y = self.f_yd / self.e_s
+        self.dia: float = 11.3  # mm
+        self.area: float = 100  # mm2
         self.f_p: float = 0  # oppspenning i kN
         self.eps_0: float = 0  # initiell tøyning
-        self.eps_s_y: float = 0.008087
-        self.eps_s_u: float = 0.04
+        self.eps_s_y: float = self.f_yk / self.e_s / self.gamma
+        self.eps_s_u: float = 0.037 * 0.9
 
     def prestressd_to(self, force: float):
         """Sett oppspenningskraften i kN for instansen. Vanligvis 115 kN ish"""
@@ -196,6 +228,11 @@ class Tendon(RebarMaterial):
     def get_prestress(self) -> float:
         """Effektiv forspenningskraft i N"""
         return self.f_p * 1e3
+
+    def get_eps_f_p(self) -> float:
+        """Få tøyning pga forspenning"""
+        eps_f_p: float = self.f_p * 1e3 / (self.e_s * self.area)
+        return eps_f_p
 
 
 class ConcreteMaterial(Material):

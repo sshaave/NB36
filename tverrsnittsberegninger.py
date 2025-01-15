@@ -682,7 +682,7 @@ if __name__ == "__main__":
 
     height = 1600
     as_area_bot = np.array([0])
-    as_area_top = np.array([(4 * 64 + 2 * 36) * 3.14])
+    as_area_top = np.array([(2 * 36) * 3.14])
     d_bot = np.array([0])
     d_top = np.array([40])
     d_pre_bot = np.array([1560, 1520, 1480, 1440])
@@ -751,7 +751,6 @@ def testing_strain_part():
         d_bot[0],
         -0.0035,
         e_s,
-        0,
         armering,
         betong_b35,
         True,
@@ -790,7 +789,6 @@ def testing_strain_part():
         250,
         betong_b35.get_e_cu(),
         0.002,
-        0,
         spennarmering,
         betong_b35,
         True,

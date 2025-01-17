@@ -129,8 +129,8 @@ class RebarB500NC(RebarMaterial):
 
     def get_stress(self, strain: float) -> float:
         if strain < 0:
-            return min(strain * self.e_s, self.f_yd)
-        return max(strain * self.e_s, self.f_yd)
+            return max(strain * self.e_s, self.f_yd)
+        return min(strain * self.e_s, self.f_yd)
 
     def get_f_yd(self) -> float:
         """Dimensjonerende flytespenning"""
@@ -159,8 +159,8 @@ class RebarB400NC(RebarMaterial):
 
     def get_stress(self, strain: float) -> float:
         if strain < 0:
-            return min(strain * self.e_s, self.f_yd)
-        return max(strain * self.e_s, self.f_yd)
+            return max(strain * self.e_s, -self.f_yd)
+        return min(strain * self.e_s, self.f_yd)
 
     def get_f_yd(self) -> float:
         """Dimensjonerende flytespenning"""
@@ -194,18 +194,18 @@ class Tendon(RebarMaterial):
 
     def prestressd_to(self, force: float):
         """Sett oppspenningskraften i kN for instansen. Vanligvis 115 kN ish"""
-        self.f_p = force
-        sigma: float = force / self.area
-        self.eps_0 = sigma / self.e_s
+        self.f_p = force * 1000  # self.f_p i N
+        sigma_0: float = self.f_p / self.area
+        self.eps_0 = sigma_0 / self.e_s
 
     def get_stress(self, strain: float) -> float:
         """Hent ut spenning fra tøyning. Enhet: N/mm2"""
-        abs_strain: float = abs(strain)
-        if abs_strain > self.eps_s_u:
+        total_strain: float = strain + self.eps_0
+        if abs(total_strain) > self.eps_s_u:
             return 0
-        if abs_strain > self.eps_s_y:
-            return self.f_yd * np.sign(strain)
-        return self.e_s * strain
+        if abs(total_strain) > self.eps_s_y:
+            return self.f_yd * np.sign(total_strain)
+        return self.e_s * total_strain
 
     def get_area(self, vector: np.ndarray) -> np.ndarray:
         """Gir tilbake areal basert på antall pr lag"""
@@ -231,9 +231,11 @@ class Tendon(RebarMaterial):
 
     def get_eps_f_p(self) -> float:
         """Få tøyning pga forspenning"""
-        eps_f_p: float = self.f_p * 1e3 / (self.e_s * self.area)
-        return eps_f_p
+        return self.eps_0
 
+    def get_max_external_strain(self) -> float:
+        """ Regn ut maks tilleggstøyning etter forspenning er satt på"""
+        return self.eps_s_u - self.eps_0
 
 class ConcreteMaterial(Material):
     """Betongmateriale etter NS-EN 1992"""

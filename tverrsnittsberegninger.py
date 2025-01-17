@@ -38,6 +38,9 @@ def integrate_cross_section(
             width_i = get_width(height_i, 0)
         else:
             width_i = get_width(height_i, var_height)
+            if width_i > 420:
+                print("error med width i integrate cross section")
+
         area_i = width_i * delta_h
 
         eps_i = e_uk + delta_e * (i - 0.5)
@@ -73,10 +76,13 @@ def evaluate_reinforcement_from_strain(
         eps_f_p = steel_material.get_eps_f_p()
 
     for d, as_ in zip(d_vector, a_vector):
-        toyning = e_c + (e_s - e_c) / d_0 * d + eps_f_p
+        toyning = e_c + (e_s - e_c) / d_0 * d
         spenning = steel_material.get_stress(toyning)
+        
+        if d == 0 or as_ == 0:
+            pass
 
-        if toyning >= 0:
+        elif spenning >= 0:
             # Tension
             d_vec_strekk = np.append(d_vec_strekk, d)
             f_vec_strekk = np.append(f_vec_strekk, spenning * as_)
@@ -84,10 +90,10 @@ def evaluate_reinforcement_from_strain(
         else:
             # Compression - using adjusted stress to account for displaced concrete area
             if is_inside_concrete:
-                concrete_spenning = concrete_material.get_stress(-toyning)
+                concrete_spenning = concrete_material.get_stress(toyning)
             else:
                 concrete_spenning = 0
-            justert_spenning = spenning + concrete_spenning
+            justert_spenning = spenning - concrete_spenning
 
             # Sjekker om det er spenningarmering, må i så fall legge til forspenningskraften
             d_vec_trykk = np.append(d_vec_trykk, d)
@@ -154,11 +160,12 @@ def section_integrator(
                 tendon_area_vector,
                 d_0,
                 e_ok,
-                e_s_d0,
+                e_s,
                 tendon_material,
                 material,
                 False,
             )
+            # TODO! antar at e_s gjelder for både armering og vaiere
         )
         f_strekk_tendon: float = np.sum(f_strekk_tendon_vec)
         f_trykk_tendon: float = np.sum(f_trykk_tendon_vec)
@@ -273,12 +280,10 @@ def objective_function_e_s(
     """
     Metode som kaller "calc_inner_state" og returnerer riktig versjon av M / M.
     """
-    e_ok = e_c
-    alpha = e_c / (e_c - e_s)
     # e_uk = e_s / (d0 * (1 - alpha)) * (height - d0 * alpha)
     # Kaller funksjonen calc_inner_state for å beregne indre tilstand
     alpha, f_b, f_s, z = section_integrator(
-        e_ok,
+        e_c,
         e_s,
         height,
         material,
@@ -301,8 +306,7 @@ def objective_function_e_s(
     mom_b = abs(f_b * z)
     if abs(abs(mom_b) / max(abs(mom_s), 1e-6) - 1) < 0.001:
         print("konv")
-        print("f_s: ", f_s, "f_b:", f_b)
-        print("alpha:", alpha)
+        print("f_s: ", f_s, "f_b:", f_b, "alpha: ", alpha)
 
     # Returnerer objektfunksjonsverdien og andre relevante verdier
     return mom_s / max(mom_b, 1e-6) - 1.0, alpha, mom_s, mom_b, z
@@ -329,14 +333,10 @@ def objective_function_e_c(
     """
     Metode som kaller "calc_inner_state" og returnerer riktig versjon av M / M.
     """
-    e_ok = e_c
-    d0 = max(d_bot[0], d_pre_bot[0])
-    alpha = e_c / (e_c - e_s)
-    e_uk = e_s / (d0 * (1 - alpha)) * (height - d0)
     # Kaller funksjonen calc_inner_state for å beregne indre tilstand
     alpha, f_b, f_s, z = section_integrator(
-        e_ok,
-        e_uk,
+        e_c,
+        e_s,
         height,
         material,
         rebar_material,
@@ -487,7 +487,7 @@ def newton_optimize_e_c(
     iterations = 0
     h = 1e-8
     step_size = 1.0
-    fortegn_tracker = [0, 1.0, -1.0]
+    fortegn_tracker = [2, 2, 2]
 
     while iterations <= max_iterations:
         iterations += 1
@@ -553,8 +553,10 @@ def newton_optimize_e_c(
                 [-1.0, 1.0, -1.0],
             ):
                 step_size *= 0.95
-                fortegn_tracker = [True, True, True]
-                max_iterations = 35
+                fortegn_tracker = [2, 2, 2]
+                max_iterations = 150
+            elif iterations == 100:
+                step_size *=0.5
 
         # Sjekk mot konvergenskriteriet
         if abs_f_value < tolerance:
@@ -619,13 +621,18 @@ def integration_iterator_ultimate(
     else:
         e_s = -1.0
 
-    print("Justerer e_c")
+    
     # Sjekker om første iterasjon var vellykket
     if e_s == -1.0:
+        print("Justerer e_c")
         # Betongtøyningen kan ikke nå e_cu. Setter en armeringstøyning og finner
         # betongtøyning som gir likevekt i tverrsnittet (e_c < e_cu).
-        e_s = 0.0333
-        initial_guess = -0.00117
+        if isinstance(rebar_pre_material, Tendon):
+            assert isinstance(rebar_pre_material, Tendon)
+            e_s = rebar_pre_material.get_max_external_strain()
+        else:
+            e_s = 0.02
+        initial_guess = -0.002 #-0.000297 #-0.00117
         e_c, alpha, mom_b, z = newton_optimize_e_c(
             e_s,
             height,
@@ -664,7 +671,7 @@ def get_width(height_i: float, var: float) -> float:
         return 100
     if height_i < 220 + var + 50:
         rel_height = height_i - (220 + var)
-        return 100 + 320 * (height_i - rel_height) / 50
+        return 100 + 320 * rel_height / 50
 
     return 420
 
@@ -674,7 +681,7 @@ if __name__ == "__main__":
     armering: RebarMaterial = RebarB400NC()
     # armering: RebarMaterial = RebarB500NC()
     spennarmering: RebarMaterial = Tendon()
-    spennarmering.prestressd_to(120)
+    spennarmering.prestressd_to(20)
     antall_vector_ok = np.array([2])
     antall_vector_uk = np.array([4, 6, 4, 2])
     area_vector_ok = spennarmering.get_area(antall_vector_ok)
@@ -703,26 +710,6 @@ if __name__ == "__main__":
         # d_pre_top=d_pre_top,
     )
     print("alpha:", alpha, "mom:", mom / 1e6, "e_c:", e_c, "e_s:", e_s)
-    """
-    al1, trykk1, strekk1, z1 = section_integrator(
-        -0.0035,
-        0.0024560296815103197,
-        height,
-        betong_b35,
-        armering,
-        as_area_bot,
-        as_area_top,
-        d_bot,
-        d_top,
-        0,
-        a_pre_bot=area_vector_uk,
-        d_pre_bot=d_pre_bot,
-        tendon_material=spennarmering,
-    )
-     
-    print("al1:", al1, "trykk1:", trykk1, "strekk1:", strekk1, "z1:", z1)
-    """
-
 
 def testing_strain_part():
     """Brukt for å teste evaluate reinforcement blant annet"""

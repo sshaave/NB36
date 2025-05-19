@@ -68,25 +68,22 @@ class CarbonMaterial(Material):
         pass
 
     @abstractmethod
-    def get_e_modulus(self) -> float:
+    def get_e_s(self) -> float:
         """Elastisitetsmodul i N/mm2"""
         pass
 
 
-class CarbonFiberDummy(CarbonMaterial):
-    """Testmateriale for karbon"""
+class CarbonFiber(CarbonMaterial):
+    """Testmateriale for karbon. Sika CarboDur M.
+    https://nor.sika.com/no/losninger-innen-bygg/bygge/forsterkning-forankring/karbonfiberforsterkning/sika-carbodur-m.html"""
 
     def __init__(self) -> None:
-        self.f_yk = 1e4
-        self.gamma = 1.0
-        self.e_s = 1 * 1e6
+        self.f_yk = 2900  # N/mm2
+        self.gamma = 1.25
+        self.e_s = 200000  # N/mm2
         self.f_yd = self.f_yk / self.gamma
-        self.eps_s_y = self.f_yd / self.e_s
-
-    def get_stress(self, strain: float) -> float:
-        if strain < 0:
-            return min(strain * self.e_s, self.f_yd)
-        return max(strain * self.e_s, self.f_yd)
+        self.eps_s_y = 1.35 / 100  # Lineært elastiske til brudd, ingen plastisitet
+        self.eps_s_u = self.eps_s_y
 
     def get_f_yd(self) -> float:
         """ " Dimensjonerende flytespenning"""
@@ -95,9 +92,12 @@ class CarbonFiberDummy(CarbonMaterial):
     def get_eps_s_y(self) -> float:
         return self.eps_s_y
 
-    def get_e_s_rebar(self) -> float:
+    def get_e_s(self) -> float:
         """Elastisitetsmodul"""
         return self.e_mod
+
+    def get_stress(self, strain: float) -> float:
+        return 0 if abs(strain) > self.eps_s_u else strain * self.e_s
 
 
 class RebarMaterial(Material):
@@ -184,7 +184,6 @@ class Tendon(RebarMaterial):
         self.gamma = 1.15
         self.e_s = 195000
         self.f_yd = self.f_yk / self.gamma
-        self.eps_s_y = self.f_yd / self.e_s
         self.dia: float = 11.3  # mm
         self.area: float = 100  # mm2
         self.f_p: float = 0  # oppspenning i kN
@@ -234,8 +233,9 @@ class Tendon(RebarMaterial):
         return self.eps_0
 
     def get_max_external_strain(self) -> float:
-        """ Regn ut maks tilleggstøyning etter forspenning er satt på"""
+        """Regn ut maks tilleggstøyning etter forspenning er satt på"""
         return self.eps_s_u - self.eps_0
+
 
 class ConcreteMaterial(Material):
     """Betongmateriale etter NS-EN 1992"""

@@ -17,8 +17,8 @@ from materialmodeller import (
 
 
 def integrate_cross_section(
-    e_ok: float,
-    e_uk: float,
+    eps_ok: float,
+    eps_uk: float,
     height_ec_zero: float,
     height_total: float,
     material: ConcreteMaterial,
@@ -31,7 +31,7 @@ def integrate_cross_section(
     height_compression = height_total - height_ec_zero
 
     iterations = 100
-    delta_e = (e_ok - e_uk) / iterations
+    delta_e = (eps_ok - eps_uk) / iterations
     delta_h = height_compression / iterations
     for i in range(1, iterations):
         height_i = height_ec_zero + delta_h * i
@@ -44,7 +44,7 @@ def integrate_cross_section(
 
         area_i = width_i * delta_h
 
-        eps_i = e_uk + delta_e * (i - 0.5)
+        eps_i = eps_uk + delta_e * (i - 0.5)
         sigma_i = material.get_stress(eps_i)
         f_i = area_i * sigma_i
         sum_f += f_i
@@ -59,8 +59,8 @@ def evaluate_reinforcement_from_strain(
     d_vector: ndarray,
     a_vector: ndarray,
     d_0: float,
-    e_c: float,
-    e_s: float,
+    eps_c: float,
+    eps_s: float,
     steel_material: Material,
     concrete_material: ConcreteMaterial,
     is_inside_concrete: bool,
@@ -72,7 +72,7 @@ def evaluate_reinforcement_from_strain(
     f_vec_trykk: ndarray = array([])
 
     for d, as_ in zip(d_vector, a_vector):
-        toyning = e_c + (e_s - e_c) / d_0 * d
+        toyning = eps_c + (eps_s - eps_c) / d_0 * d
         spenning = steel_material.get_stress(toyning)
 
         if d == 0 or as_ == 0:
@@ -99,8 +99,8 @@ def evaluate_reinforcement_from_strain(
 
 
 def section_integrator(
-    e_ok: float,
-    e_s: float,
+    eps_ok: float,
+    eps_s: float,
     height: float,
     material: ConcreteMaterial,
     rebar_material: RebarMaterial,
@@ -117,16 +117,17 @@ def section_integrator(
     a_carbon: ndarray = None,
     d_carbon: ndarray = None,
     carbon_material: CarbonMaterial = None,
+    moment_zero_state: float = 0
 ) -> Tuple[float, float, float, float]:
     """Integrerer opp tverrsnittet"""
     # Starter med å finne alpha fra tøyningene. Antar at tøyninger som gir trykk er positive, og strekk negativt.
-    # delta_eps: float = (e_ok - e_uk) / height
+    # delta_eps: float = (eps_ok - eps_uk) / height
     d_0 = max(d_bot[0], d_pre_bot[0])
-    delta_eps: float = (e_s - e_ok) / d_0
-    e_uk: float = e_s + delta_eps * (height - d_0)
-    # e_s_d0: float = e_uk + delta_eps * d_0
-    e_s_d0 = e_s
-    alpha: float = min(max(e_ok / (e_ok - e_s_d0), 0), 1)
+    delta_eps: float = (eps_s - eps_ok) / d_0
+    eps_uk: float = eps_s + delta_eps * (height - d_0)
+    # eps_s_d0: float = eps_uk + delta_eps * d_0
+    eps_s_d0 = eps_s
+    alpha: float = min(max(eps_ok / (eps_ok - eps_s_d0), 0), 1)
     if alpha in (0, 1):
         print("feil i alpha", alpha)
 
@@ -135,7 +136,7 @@ def section_integrator(
 
     # Ønsker å finne hvilke lag som har strekk og trykk (og størrelse på kreftene)
     d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(
-        d_vector, rebar_vector, d_0, e_ok, e_s_d0, rebar_material, material, True
+        d_vector, rebar_vector, d_0, eps_ok, eps_s_d0, rebar_material, material, True
     )
 
     sum_f_strekk_armering = np.sum(f_strekk)
@@ -155,13 +156,13 @@ def section_integrator(
                 d_vector_tendon,
                 tendon_area_vector,
                 d_0,
-                e_ok,
-                e_s,
+                eps_ok,
+                eps_s,
                 tendon_material,
                 material,
                 False,
             )
-            # TODO! antar at e_s gjelder for både armering og vaiere
+            # TODO! antar at eps_s gjelder for både armering og vaiere
         )
         f_strekk_tendon: float = np.sum(f_strekk_tendon_vec)
         f_trykk_tendon: float = np.sum(f_trykk_tendon_vec)
@@ -189,8 +190,8 @@ def section_integrator(
                 d_carbon,
                 a_carbon,
                 d_0,
-                e_ok,
-                e_s_d0,
+                eps_ok,
+                eps_s_d0,
                 carbon_material,
                 material,
                 False,
@@ -232,11 +233,11 @@ def section_integrator(
     sum_strekk = sum_f_strekk_armering + f_strekk_tendon + f_strekk_karbon
 
     alpha_d: float = alpha * d_0
-    e_c_uk = 0.0  # bøyning, en del vil alltid være i strekk så setter denne 0 for integralet sin del
+    eps_c_uk = 0.0  # bøyning, en del vil alltid være i strekk så setter denne 0 for integralet sin del
 
     height_uk = height - alpha_d
     f_bet, d_alpha_d = integrate_cross_section(
-        e_ok, e_c_uk, height_uk, height, material, var_height=1180
+        eps_ok, eps_c_uk, height_uk, height, material, var_height=1180
     )  # , var_height)
     d_bet = alpha_d - d_alpha_d
 
@@ -257,9 +258,9 @@ def section_integrator(
     return alpha, sum_trykk, sum_strekk, z
 
 
-def objective_function_e_s(
-    e_s,
-    e_c,
+def objective_function_eps_s(
+    eps_s,
+    eps_c,
     height,
     material: ConcreteMaterial,
     rebar_material: RebarMaterial,
@@ -276,15 +277,16 @@ def objective_function_e_s(
     a_carbon: ndarray = None,
     d_carbon: ndarray = None,
     carbon_material: CarbonMaterial = None,
+    moment_zero_state: float = 0,
 ):
     """
     Metode som kaller "calc_inner_state" og returnerer riktig versjon av M / M.
     """
-    # e_uk = e_s / (d0 * (1 - alpha)) * (height - d0 * alpha)
+    # eps_uk = eps_s / (d0 * (1 - alpha)) * (height - d0 * alpha)
     # Kaller funksjonen calc_inner_state for å beregne indre tilstand
     alpha, f_b, f_s, z = section_integrator(
-        e_c,
-        e_s,
+        eps_c,
+        eps_s,
         height,
         material,
         rebar_material,
@@ -301,6 +303,7 @@ def objective_function_e_s(
         a_carbon=a_carbon,
         d_carbon=d_carbon,
         carbon_material=carbon_material,
+        moment_zero_state=moment_zero_state
     )
 
     # Beregner momenter
@@ -315,9 +318,9 @@ def objective_function_e_s(
     return mom_s / max(mom_b, 1e-6) - 1.0, alpha, mom_s, mom_b, z
 
 
-def objective_function_e_c(
-    e_s,
-    e_c,
+def objective_function_eps_c(
+    eps_s,
+    eps_c,
     height: ndarray,
     material: ConcreteMaterial,
     rebar_material: RebarMaterial,
@@ -334,14 +337,15 @@ def objective_function_e_c(
     a_carbon: ndarray = None,
     d_carbon: ndarray = None,
     carbon_material: CarbonMaterial = None,
+    moment_zero_state: float = 0
 ):
     """
     Metode som kaller "calc_inner_state" og returnerer riktig versjon av M / M.
     """
     # Kaller funksjonen calc_inner_state for å beregne indre tilstand
     alpha, f_b, f_s, z = section_integrator(
-        e_c,
-        e_s,
+        eps_c,
+        eps_s,
         height,
         material,
         rebar_material,
@@ -358,6 +362,7 @@ def objective_function_e_c(
         a_carbon=a_carbon,
         d_carbon=d_carbon,
         carbon_material=carbon_material,
+        moment_zero_state=moment_zero_state,
     )
 
     # Beregner momenter
@@ -368,8 +373,8 @@ def objective_function_e_c(
     return mom_b / max(mom_s, 1e-6) - 1.0, alpha, mom_b, z
 
 
-def newton_optimize_e_s(
-    e_c,
+def newton_optimize_eps_s(
+    eps_c,
     height: ndarray,
     material: ConcreteMaterial,
     rebar_material: RebarMaterial,
@@ -387,15 +392,16 @@ def newton_optimize_e_s(
     a_carbon: ndarray = None,
     d_carbon: ndarray = None,
     carbon_material: CarbonMaterial = None,
+    moment_zero_state: float = 0
 ):
     """
-    Metode som gjør iterasjonen for e_s via Newton-Raphson.
-    Inneholder egne sjekk for e_s-optimering og er derfor skilt fra e_c.
+    Metode som gjør iterasjonen for eps_s via Newton-Raphson.
+    Inneholder egne sjekk for eps_s-optimering og er derfor skilt fra eps_c.
     """
     # Initialiserer
     max_iterations = 30
     tolerance = 1e-3
-    e_s = initial_guess
+    eps_s = initial_guess
     iterations = 0
     h = 1e-8
     step_size = 1.0
@@ -404,9 +410,9 @@ def newton_optimize_e_s(
         iterations += 1
 
         # Regne ut objektfunksjonen og dens deriverte
-        f_value, alpha, mom_s, mom_b, z = objective_function_e_s(
-            e_s,
-            e_c,
+        f_value, alpha, mom_s, mom_b, z = objective_function_eps_s(
+            eps_s,
+            eps_c,
             height,
             material,
             rebar_material,
@@ -426,9 +432,9 @@ def newton_optimize_e_s(
         )
         abs_f_value = abs(f_value)
 
-        f_value2, _, _, _, _ = objective_function_e_s(
-            e_s + h,
-            e_c,
+        f_value2, _, _, _, _ = objective_function_eps_s(
+            eps_s + h,
+            eps_c,
             height,
             material,
             rebar_material,
@@ -445,33 +451,34 @@ def newton_optimize_e_s(
             a_carbon=a_carbon,
             d_carbon=d_carbon,
             carbon_material=carbon_material,
+            moment_zero_state=moment_zero_state,
         )
 
         f_prime = (f_value2 - f_value) / h
 
-        # Oppdaterer e_s basert på Newton-Raphson-metoden
-        e_s -= step_size * f_value / f_prime
+        # Oppdaterer eps_s basert på Newton-Raphson-metoden
+        eps_s -= step_size * f_value / f_prime
 
         # Sjekk om tøyningen er altfor stor
-        if e_s > 0.02:
+        if eps_s > 0.02:
             if mom_s < mom_b:
                 return -1.0, -1.0, -1.0, -1.0
-            e_s = 0.016
+            eps_s = 0.016
             step_size *= 0.5  # Kan kanskje på sikt fjerne step_size.
 
         # Sjekk mot konvergenskriteriet
         if abs_f_value < tolerance:
-            return e_s, alpha, mom_b, z
-        if e_s < 0.0 or math.isnan(e_s):
-            e_s = 0.0001
+            return eps_s, alpha, mom_b, z
+        if eps_s < 0.0 or math.isnan(eps_s):
+            eps_s = 0.0001
             step_size *= 0.75
 
     # Hvis maks antall iterasjoner er nådd uten konvergens
     return -1.0, -1.0, -1.0, -1.0
 
 
-def newton_optimize_e_c(
-    e_s,
+def newton_optimize_eps_c(
+    eps_s,
     height: ndarray,
     material: ConcreteMaterial,
     rebar_material: RebarMaterial,
@@ -484,21 +491,22 @@ def newton_optimize_e_c(
     d_pre_bot,
     d_pre_top,
     initial_guess,
-    e_cu,
+    eps_cu,
     creep_eff,
     rebar_pre_material: RebarMaterial = None,
     a_carbon: ndarray = None,
     d_carbon: ndarray = None,
     carbon_material: CarbonMaterial = None,
+    moment_zero_state: float = 0
 ):
     """
-    Metode som gjør iterasjonen for e_c via Newton-Raphson.
-    Inneholder egne sjekk for e_c-optimering og er derfor skilt fra e_s.
+    Metode som gjør iterasjonen for eps_c via Newton-Raphson.
+    Inneholder egne sjekk for eps_c-optimering og er derfor skilt fra eps_s.
     """
     # Initialiserer
     max_iterations = 20
     tolerance = 1e-3
-    e_c = initial_guess
+    eps_c = initial_guess
     iterations = 0
     h = 1e-8
     step_size = 1.0
@@ -508,9 +516,9 @@ def newton_optimize_e_c(
         iterations += 1
 
         # Regne ut objektfunksjonen og dens deriverte
-        f_value, alpha, mom_b, z = objective_function_e_c(
-            e_s,
-            e_c,
+        f_value, alpha, mom_b, z = objective_function_eps_c(
+            eps_s,
+            eps_c,
             height,
             material,
             rebar_material,
@@ -527,13 +535,14 @@ def newton_optimize_e_c(
             a_carbon=a_carbon,
             d_carbon=d_carbon,
             carbon_material=carbon_material,
+            moment_zero_state=moment_zero_state,
         )
         abs_f_value = abs(f_value)
         fortegn_tracker[iterations % 3] = np.sign(f_value)
 
-        f_value2, _, _, _ = objective_function_e_c(
-            e_s,
-            e_c + h,
+        f_value2, _, _, _ = objective_function_eps_c(
+            eps_s,
+            eps_c + h,
             height,
             material,
             rebar_material,
@@ -558,15 +567,15 @@ def newton_optimize_e_c(
         if abs_f_value > 1e-6:
             if iterations == 17:
                 step_size *= 0.25
-            e_c -= step_size * f_value / f_prime
+            eps_c -= step_size * f_value / f_prime
 
             # Sjekk om tøyningen er altfor stor
-            if e_c < e_cu:
-                e_c = e_cu
+            if eps_c < eps_cu:
+                eps_c = eps_cu
                 step_size *= 0.5  # Kan kanskje på sikt fjerne step_size.
-            elif e_c > 0:
+            elif eps_c > 0:
                 step_size *= 0.85
-                e_c = -0.0001
+                eps_c = -0.0001
             elif fortegn_tracker in (
                 [1.0, -1.0, 1.0],
                 [-1.0, 1.0, -1.0],
@@ -580,7 +589,7 @@ def newton_optimize_e_c(
         # Sjekk mot konvergenskriteriet
         if abs_f_value < tolerance:
             print("Iteration: ", iterations)
-            return e_c, alpha, mom_b, z
+            return eps_c, alpha, mom_b, z
 
     # Hvis maks antall iterasjoner er nådd uten konvergens
     return -1.0, -1.0, -1.0, -1.0
@@ -603,24 +612,26 @@ def integration_iterator_ultimate(
     d_carbon: ndarray = None,
     carbon_material: CarbonMaterial = None,
     creep_eff: float = 0,
+    moment_zero_state: float = 0
 ) -> float:
     """For ULS"""
+    # Moment_zeroState er momentet som ligger i momentmaks når karbonfiber limes og monteres.
     # Må ha en initiell testverdi
     initial_guess = 0.015
-    e_cu = concrete_material.get_e_cu()
-    e_c = e_cu
+    eps_cu = concrete_material.get_eps_cu()
+    eps_c = eps_cu
 
     # Kalkulasjon starter
-    # Må finne den verdien/kombinasjonen av e_cu og e_s som gir indre likevekt i tverrsnittet.
-    # Starter med å anta e_c = e_cu og ser om ulike verdier av e_s kan gi likevekt.
+    # Må finne den verdien/kombinasjonen av eps_cu og eps_s som gir indre likevekt i tverrsnittet.
+    # Starter med å anta eps_c = eps_cu og ser om ulike verdier av eps_s kan gi likevekt.
 
     sum_as_bot = np.sum(as_area_bot)
     sum_as_top = np.sum(as_area_top)
 
     alpha, mom_b, z = 0, 0, 0
     if sum_as_bot > sum_as_top or rebar_pre_material is not None:
-        e_s, alpha, mom_b, z = newton_optimize_e_s(
-            e_c,
+        eps_s, alpha, mom_b, z = newton_optimize_eps_s(
+            eps_c,
             height,
             concrete_material,
             rebar_material,
@@ -638,23 +649,24 @@ def integration_iterator_ultimate(
             a_carbon=a_carbon,
             d_carbon=d_carbon,
             carbon_material=carbon_material,
+            moment_zero_state=moment_zero_state,
         )
     else:
-        e_s = -1.0
+        eps_s = -1.0
 
     # Sjekker om første iterasjon var vellykket
-    if e_s == -1.0:
-        print("Justerer e_c")
-        # Betongtøyningen kan ikke nå e_cu. Setter en armeringstøyning og finner
-        # betongtøyning som gir likevekt i tverrsnittet (e_c < e_cu).
+    if eps_s == -1.0:
+        print("Justerer eps_c")
+        # Betongtøyningen kan ikke nå eps_cu. Setter en armeringstøyning og finner
+        # betongtøyning som gir likevekt i tverrsnittet (eps_c < eps_cu).
         if isinstance(rebar_pre_material, Tendon):
             assert isinstance(rebar_pre_material, Tendon)
-            e_s = rebar_pre_material.get_max_external_strain()
+            eps_s = rebar_pre_material.get_max_external_strain()
         else:
-            e_s = 0.02
+            eps_s = 0.02
         initial_guess = -0.002  # -0.000297 #-0.00117
-        e_c, alpha, mom_b, z = newton_optimize_e_c(
-            e_s,
+        eps_c, alpha, mom_b, z = newton_optimize_eps_c(
+            eps_s,
             height,
             concrete_material,
             rebar_material,
@@ -667,15 +679,16 @@ def integration_iterator_ultimate(
             d_pre_bot,
             d_pre_top,
             initial_guess,
-            e_cu,
+            eps_cu,
             creep_eff,
             rebar_pre_material=rebar_pre_material,
             a_carbon=a_carbon,
             d_carbon=d_carbon,
             carbon_material=carbon_material,
+            moment_zero_state=moment_zero_state,
         )
 
-    return (alpha, mom_b, e_s, e_c, z)
+    return (alpha, mom_b, eps_s, eps_c, z)
 
 
 def get_width2(_a: float, _b: float) -> float:
@@ -711,7 +724,7 @@ if __name__ == "__main__":
 
     karbonfiber: CarbonMaterial = CarbonFiber()
     carbon_vector: ndarray = np.array([50 * 1.4 * 2])
-    # carbon_vector = None  #  e_s: 0.00912011152199339
+    # carbon_vector = None  #  eps_s: 0.00912011152199339
     d_carbon: ndarray = np.array([1560])
 
     height = 1600
@@ -722,7 +735,7 @@ if __name__ == "__main__":
     d_pre_bot = np.array([1560, 1520, 1480, 1440])
     d_pre_top = np.array([40])
 
-    alpha, mom, e_s, e_c, z = integration_iterator_ultimate(
+    alpha, mom, eps_s, eps_c, z = integration_iterator_ultimate(
         height,
         as_area_bot,
         as_area_top,
@@ -738,8 +751,9 @@ if __name__ == "__main__":
         d_carbon=d_carbon,
         a_carbon=carbon_vector,
         carbon_material=karbonfiber,
+        moment_zero_state=10.,
     )
-    print("alpha:", alpha, "mom:", mom / 1e6, "e_c:", e_c, "e_s:", e_s)
+    print("alpha:", alpha, "mom:", mom / 1e6, "eps_c:", eps_c, "eps_s:", eps_s)
 
 
 def testing_strain_part():
@@ -755,18 +769,18 @@ def testing_strain_part():
     as_area_top = np.array([64 * 3.14])
     d_bot = np.array([250, 200])
     d_top = np.array([50])
-    alpha, mom, e_s, e_c, z = integration_iterator_ultimate(
+    alpha, mom, eps_s, eps_c, z = integration_iterator_ultimate(
         height, as_area_bot, as_area_top, d_bot, d_top, betong_b35, armering
     )
-    # print("alpha:", alpha, ". e_c:", e_c, "e_s:", e_s)
-    # e_c_uk: float = 0.0026340921430255495
+    # print("alpha:", alpha, ". eps_c:", eps_c, "eps_s:", eps_s)
+    # eps_c_uk: float = 0.0026340921430255495
 
     d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(
         np.array([250, 200, 50]),
         np.array([228 * 3.14, 64 * 3.14, 64 * 3.14]),
         d_bot[0],
         -0.0035,
-        e_s,
+        eps_s,
         armering,
         betong_b35,
         True,
@@ -774,12 +788,12 @@ def testing_strain_part():
 
     alpha_d = alpha * d_bot[0]
     f_bet, d_bet = integrate_cross_section(
-        e_c, 0, height - alpha_d, height, betong_b35
+        eps_c, 0, height - alpha_d, height, betong_b35
     )  # , var_height)
 
     alpha, sum_trykk, sum_strekk_arm, z = section_integrator(
         -0.0035,
-        e_s,
+        eps_s,
         height,
         betong_b35,
         armering,
@@ -800,7 +814,7 @@ def testing_strain_part():
         np.array([250, 200]),
         area_vector,
         250,
-        betong_b35.get_e_cu(),
+        betong_b35.get_eps_cu(),
         0.002,
         spennarmering,
         betong_b35,

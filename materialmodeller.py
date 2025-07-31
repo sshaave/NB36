@@ -3,33 +3,33 @@ import numpy as np
 
 
 def parabel_rektangel(
-    e_c: float, e_c2: float, n: float, e_cu2: float, f_cd: float
+    eps_c: float, eps_c2: float, n: float, eps_cu2: float, f_cd: float
 ) -> float:
     """Brukes til bøyning"""
     # Iht Figur 3.3 og Ligning (3.17)
-    if e_c < e_cu2:
+    if eps_c < eps_cu2:
         return 0
-    elif e_c <= e_c2:
+    elif eps_c <= eps_c2:
         return f_cd
-    elif e_c >= 0:
+    elif eps_c >= 0:
         return 0.0
     else:
-        sigma_c = f_cd * (1 - (1 - e_c / e_c2) ** n)
+        sigma_c = f_cd * (1 - (1 - eps_c / eps_c2) ** n)
         return sigma_c
 
 
 def sargin_mat_model(
-    e_c: float, e_c1: float, e_cu1: float, e_cm: float, f_cm: float
+    eps_c: float, eps_c1: float, eps_cu1: float, e_cm: float, f_cm: float
 ) -> float:
     """Brukes til énaksiell situasjon (søyle)"""
     # Iht Figur 3.2 og Ligning (3.14)
-    k = 1.05 * e_cm * abs(e_c1) / f_cm
-    eta = abs(e_c / e_c1)
+    k = 1.05 * e_cm * abs(eps_c1) / f_cm
+    eta = abs(eps_c / eps_c1)
 
-    if e_c < e_cu1 or e_c > 0:
+    if eps_c < eps_cu1 or eps_c > 0:
         return 0
     else:
-        return f_cm * (k * eta - eta**2) / (1 + (k - 2) * eta) * np.sign(e_c)
+        return f_cm * (k * eta - eta**2) / (1 + (k - 2) * eta) * np.sign(eps_c)
 
 
 class Material(ABC):
@@ -84,6 +84,15 @@ class CarbonFiber(CarbonMaterial):
         self.f_yd = self.f_yk / self.gamma
         self.eps_s_y = 1.35 / 100  # Lineært elastiske til brudd, ingen plastisitet
         self.eps_s_u = self.eps_s_y
+        self.eps_s_0_state = 0.0
+
+    def get_eps_s_0_state(self) -> float:
+        """Tøyning ved montering av fiberarmering"""
+        return self.eps_s_0_state
+    
+    def set_eps_s_0_state(self, eps_s_0_state: float) -> None:
+        """Setter tøyningsverdi ved montering av fiberarmering"""
+        self.eps_s_0_state = eps_s_0_state
 
     def get_f_yd(self) -> float:
         """ " Dimensjonerende flytespenning"""
@@ -247,8 +256,8 @@ class ConcreteMaterial(Material):
         self.e_cm: float = 0
         self.p_r: float = 0.2
         self.f_cm: float = 0
-        self.e_cy: float = 0
-        self.e_cu: float = 0
+        self.eps_cy: float = 0
+        self.eps_cu: float = 0
         self.material_model = material_model
         self.f_ctm, self.e_cm = self.fetch_material_parameters()
         self.get_eps_cu_c_n()
@@ -256,19 +265,19 @@ class ConcreteMaterial(Material):
 
     def get_stress(self, strain: float) -> float:
         if self.material_model == "Sargin":
-            return sargin_mat_model(strain, self.e_cy, self.e_cu, self.e_cm, self.f_cm)
-        return parabel_rektangel(strain, self.e_cy, self.n, self.e_cu, self.f_cd)
+            return sargin_mat_model(strain, self.eps_cy, self.eps_cu, self.e_cm, self.f_cm)
+        return parabel_rektangel(strain, self.eps_cy, self.n, self.eps_cu, self.f_cd)
 
-    def get_e_cu(self) -> float:
+    def get_eps_cu(self) -> float:
         """Bruddtøyning (minus i trykk)"""
-        return self.e_cu
+        return self.eps_cu
 
     def get_eps_cu_c_n(self):
-        """Finn bruddtøyning og e_cx"""
+        """Finn bruddtøyning og eps_cx"""
         if self.material_model == "Parabola":
-            (self.e_cu, self.e_cy, self.n) = self.get_eps_cu2_c2_n()
+            (self.eps_cu, self.eps_cy, self.n) = self.get_eps_cu2_c2_n()
         elif self.material_model == "Bilinear":
-            (self.e_cu, self.e_cy, self.n) = self.get_eps_cu3_c3()
+            (self.eps_cu, self.eps_cy, self.n) = self.get_eps_cu3_c3()
         elif self.material_model == "Sargin":
             self.get_eps_cu1_c1()
         else:
@@ -277,11 +286,11 @@ class ConcreteMaterial(Material):
     def get_eps_cu1_c1(self):
         """Returns eps_c1 and eps_cu1 values for concrete type defined in Table 3.1 of NS-EN 1992-1-1"""
         self.f_cm = self.f_ck + 8.0
-        self.e_cy = min(0.7 * self.f_cm**0.31, 2.8) / 1000.0
+        self.eps_cy = min(0.7 * self.f_cm**0.31, 2.8) / 1000.0
         if self.f_ck < 55.0:
-            self.e_cu = -0.00350
+            self.eps_cu = -0.00350
         else:
-            self.e_cu = -(2.8 + 27.0 * ((98.0 - self.f_cm) / 100.0) ** 4) / 1000.0
+            self.eps_cu = -(2.8 + 27.0 * ((98.0 - self.f_cm) / 100.0) ** 4) / 1000.0
 
     def get_eps_cu2_c2_n(self):
         """Returns eps_c2 and eps_cu2 values for concrete type defined in Table 3.1 of NS-EN 1992-1-1"""

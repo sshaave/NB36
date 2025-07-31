@@ -40,9 +40,13 @@ class LastRespons():
         self.v_uls, self.m_uls = create_v_m_diagram(self.length, self.q_uls, x_values)
         self.v_sls, self.m_sls = create_v_m_diagram(self.length, self.q_sls, x_values)
         self.v_init, self.m_init = create_v_m_diagram(self.length, self.q_init, x_values)
-    
-    def get_m_uls(self) -> list[float]:
-        return self.m_uls
+
+    def calc_response_with_deadload(self, deadload_uls: float, deadload_sls: float, deadload_init: float) -> None:
+        """Regner ut skjær og momentdiagrammer. Egenvekt legges til med fakt"""
+        x_values: np.ndarray = np.linspace(0, self.length, self.antall_punkt)
+        self.v_uls, self.m_uls = create_v_m_diagram(self.length, self.q_uls + deadload_uls, x_values)
+        self.v_sls, self.m_sls = create_v_m_diagram(self.length, self.q_sls + deadload_sls, x_values)
+        self.v_init, self.m_init = create_v_m_diagram(self.length, self.q_init + deadload_init, x_values)
 
 
 def create_v_m_diagram(length: float, q: float, x: np.ndarray) -> Tuple[list[float], list[float]]:

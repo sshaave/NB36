@@ -58,12 +58,13 @@ def integrate_cross_section(
 def evaluate_reinforcement_from_strain(
     d_vector: ndarray,
     a_vector: ndarray,
-    d_0: float,
-    eps_c: float,
-    eps_s: float,
+    height: float,
+    eps_ok: float,
+    eps_uk: float,
     steel_material: Material,
     concrete_material: ConcreteMaterial,
     is_inside_concrete: bool,
+    is_ck_not_cd: bool = True,
 ) -> Tuple[ndarray, ndarray, ndarray, ndarray]:
     """Krefter i armering basert på tøyninger. Behandler alle som punkter og ikke areal"""
     d_vec_strekk: ndarray = array([])
@@ -72,8 +73,8 @@ def evaluate_reinforcement_from_strain(
     f_vec_trykk: ndarray = array([])
 
     for d, as_ in zip(d_vector, a_vector):
-        toyning = eps_c + (eps_s - eps_c) / d_0 * d
-        spenning = steel_material.get_stress(toyning)
+        toyning = eps_ok + (eps_uk - eps_ok) / height * d # Geometrisk tøyning
+        spenning = steel_material.get_stress(toyning, is_ck_not_cd)
 
         if d == 0 or as_ == 0:
             pass
@@ -86,10 +87,10 @@ def evaluate_reinforcement_from_strain(
         else:
             # Compression - using adjusted stress to account for displaced concrete area
             if is_inside_concrete:
-                concrete_spenning = concrete_material.get_stress(toyning)
+                betong_spenning = concrete_material.get_stress(toyning)
             else:
-                concrete_spenning = 0
-            justert_spenning = spenning - concrete_spenning
+                betong_spenning = 0
+            justert_spenning = spenning - betong_spenning
 
             # Sjekker om det er spenningarmering, må i så fall legge til forspenningskraften
             d_vec_trykk = np.append(d_vec_trykk, d)
@@ -136,7 +137,7 @@ def section_integrator(
 
     # Ønsker å finne hvilke lag som har strekk og trykk (og størrelse på kreftene)
     d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(
-        d_vector, rebar_vector, d_0, eps_ok, eps_s_d0, rebar_material, material, True
+        d_vector, rebar_vector, height, eps_ok, eps_uk, rebar_material, material, True
     )
 
     sum_f_strekk_armering = np.sum(f_strekk)

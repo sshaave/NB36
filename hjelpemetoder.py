@@ -23,26 +23,26 @@ def eps_ok_uk_to_c_and_s(
         alpha = -eps_ok / (eps_s - eps_ok)
         return eps_ok, eps_s, alpha
 
-    elif not strekk_uk and strekk_ok:
+    if not strekk_uk and strekk_ok:
         # Strekk OK og trykk UK
         eps_s = eps_uk - d_eps_dx * (height - d0_strekk)
         alpha = -eps_uk / (eps_s - eps_uk)
         return eps_uk, eps_s, alpha
 
-    elif strekk_uk and strekk_ok:
+    if strekk_uk and strekk_ok:
         # Strekk i hele tverrsnittet
         eps_s_uk = eps_uk - d_eps_dx * (height - d0_strekk)
         eps_s_ok = eps_ok - d_eps_dx * (height - d0_trykk)
         return eps_s_ok, eps_s_uk, 0.0
 
+    # else
+    # Trykk i hele tverrsnittet
+    if eps_ok < eps_uk:
+        # Mest trykk i OK
+        alpha_d = -eps_ok / d_eps_dx
     else:
-        # Trykk i hele tverrsnittet
-        if eps_ok < eps_uk:
-            # Mest trykk i OK
-            alpha_d = -eps_ok / d_eps_dx
-        else:
-            # Mest trykk i UK
-            alpha_d = -eps_uk / d_eps_dx
-        alpha = alpha_d / d0_strekk
-        return min(eps_ok, eps_uk), 0.0, alpha
+        # Mest trykk i UK
+        alpha_d = -eps_uk / d_eps_dx
+    alpha = alpha_d / d0_strekk
+    return min(eps_ok, eps_uk), 0.0, alpha
     

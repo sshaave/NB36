@@ -104,12 +104,12 @@ def section_integrator(
     eps_s: float,
     height: float,
     material: ConcreteMaterial,
-    rebar_material: RebarMaterial,
-    as_bot: ndarray,
-    as_top: ndarray,
-    d_bot: ndarray,
-    d_top: ndarray,
-    creep: float,
+    rebar_material: RebarMaterial = None,
+    as_bot: ndarray = None,
+    as_top: ndarray = None,
+    d_bot: ndarray = None,
+    d_top: ndarray = None,
+    creep: float = 0,
     a_pre_bot: ndarray = None,
     a_pre_top: ndarray = None,
     d_pre_bot: ndarray = None,
@@ -130,18 +130,30 @@ def section_integrator(
     eps_s_d0 = eps_s
     alpha: float = min(max(eps_ok / (eps_ok - eps_s_d0), 0), 1)
     if alpha in (0, 1):
+        # Ugyldig verdi, feil i utregning
         print("feil i alpha", alpha)
 
-    d_vector = np.concatenate((d_bot, d_top), axis=0)
-    rebar_vector = np.concatenate((as_bot, as_top), axis=0)
-
     # Ønsker å finne hvilke lag som har strekk og trykk (og størrelse på kreftene)
-    d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(
-        d_vector, rebar_vector, height, eps_ok, eps_uk, rebar_material, material, True
-    )
-
-    sum_f_strekk_armering = np.sum(f_strekk)
-    sum_f_trykk_armering = np.sum(f_trykk)
+    # Slakkarmering
+    if rebar_material is not None:
+        # Starter med å samle d- og areal-vektorer
+        d_vector = np.concatenate((d_bot, d_top), axis=0)
+        rebar_vector = np.concatenate((as_bot, as_top), axis=0)
+        
+        # Regner ut kraft, og sorterer etter strekk og trykk
+        d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(
+            d_vector, rebar_vector, height, eps_ok, eps_uk, rebar_material, material, True
+        )
+    else:
+        f_strekk: float = 0
+        f_trykk: float = 0
+        d_strekk_avg: float = 0
+        d_trykk_avg: float = 0
+        d_strekk: ndarray = np.array([])
+    
+    # Summerer kreftene (selv om de er 0)
+    sum_f_strekk_armering: float = np.sum(f_strekk)
+    sum_f_trykk_armering: float = np.sum(f_trykk)
     d_strekk_rebar: float = np.dot(f_strekk, d_strekk) / max(sum_f_strekk_armering, 1)
 
     if tendon_material is not None:
@@ -713,6 +725,7 @@ def get_width(height_i: float, var: float) -> float:
 
 
 if __name__ == "__main__":
+    height = 600
     betong_b45: ConcreteMaterial = ConcreteMaterial(45, material_model="Parabola")
     armering: RebarMaterial = RebarB400NC()
     # armering: RebarMaterial = RebarB500NC()
@@ -725,15 +738,15 @@ if __name__ == "__main__":
 
     karbonfiber: CarbonMaterial = CarbonFiber()
     carbon_vector: ndarray = np.array([50 * 1.4 * 2])
-    # carbon_vector = None  #  eps_s: 0.00912011152199339
-    d_carbon: ndarray = np.array([1560])
+    #carbon_vector = None  #  alpha: 0.522
+    d_carbon: ndarray = np.array([height - 40])
 
-    height = 1600
+    
     as_area_bot = np.array([0])
     as_area_top = np.array([(2 * 36) * 3.14])
     d_bot = np.array([0])
     d_top = np.array([40])
-    d_pre_bot = np.array([1560, 1520, 1480, 1440])
+    d_pre_bot = np.array([height - 40, height - 80, height - 120, height - 160])
     d_pre_top = np.array([40])
 
     alpha, mom, eps_s, eps_c, z = integration_iterator_ultimate(
@@ -751,7 +764,7 @@ if __name__ == "__main__":
         # d_pre_top=d_pre_top,
         d_carbon=d_carbon,
         a_carbon=carbon_vector,
-        carbon_material=karbonfiber,
+        #carbon_material=karbonfiber,
         moment_zero_state=10.,
     )
     print("alpha:", alpha, "mom:", mom / 1e6, "eps_c:", eps_c, "eps_s:", eps_s)

@@ -28,8 +28,7 @@ def sargin_mat_model(
 
     if eps_c < eps_cu1 or eps_c > 0:
         return 0
-    else:
-        return f_cm * (k * eta - eta**2) / (1 + (k - 2) * eta) * np.sign(eps_c)
+    return f_cm * (k * eta - eta**2) / (1 + (k - 2) * eta) * np.sign(eps_c)
 
 
 class Material(ABC):
@@ -48,7 +47,6 @@ class Material(ABC):
     @abstractmethod
     def get_stress(self, strain: float, is_ck_not_cd: bool = True) -> float:
         """Gir spenning for en gitt tøyning"""
-        pass
 
     @abstractmethod
     def get_f_yd(self) -> float:
@@ -65,12 +63,15 @@ class CarbonMaterial(Material):
     @abstractmethod
     def get_eps_s_y(self) -> float:
         """Flyttøyning"""
-        pass
 
     @abstractmethod
     def get_e_s(self) -> float:
         """Elastisitetsmodul i N/mm2"""
-        pass
+        
+    @abstractmethod
+    def get_stress(self, strain: float, is_ck_not_cd: bool = True) -> float:
+        """Gir spenning for en gitt tøyning"""
+
 
 
 class CarbonFiber(CarbonMaterial):
@@ -93,7 +94,11 @@ class CarbonFiber(CarbonMaterial):
     def set_eps_s_0_state(self, eps_s_0_state: float) -> None:
         """Setter tøyningsverdi ved montering av fiberarmering"""
         self.eps_s_0_state = eps_s_0_state
-
+    
+    def reset_0_state(self) -> None:
+        """Setter verdien til 0"""
+        self.eps_s_0_state = 0.
+        
     def get_f_yd(self) -> float:
         """ " Dimensjonerende flytespenning"""
         return self.f_yd
@@ -106,7 +111,11 @@ class CarbonFiber(CarbonMaterial):
         return self.e_mod
 
     def get_stress(self, strain: float, is_ck_not_cd: bool = True) -> float:
-        return 0 if abs(strain) > self.eps_s_u else strain * self.e_s
+        """Må ta hensyn til at karbonfiberen monteres når tverrsnittet potensielt er belastet.
+        Tøyningen i karbonfiberen kan være lavere enn den geometriske tøyningen for tverrsnittet"""
+        strain_carbon_fiber = strain - self.eps_s_0_state
+        
+        return 0 if abs(strain_carbon_fiber) > self.eps_s_u else strain_carbon_fiber * self.e_s
 
 
 class RebarMaterial(Material):
@@ -115,11 +124,15 @@ class RebarMaterial(Material):
     @abstractmethod
     def get_eps_s_y(self) -> float:
         pass
-
+    
+    @abstractmethod
+    def get_eps_s_u(self) -> float:
+        pass
+        
     @abstractmethod
     def get_e_s_rebar(self) -> float:
         pass
-
+    
     @abstractmethod
     def get_f_yd(self):
         pass
@@ -134,7 +147,7 @@ class RebarB500NC(RebarMaterial):
         self.e_s = 2 * 1e5
         self.f_yd = self.f_yk / self.gamma
         self.eps_s_y = self.f_yd / self.e_s
-        self.eps_ultimate = 2 / 100
+        self.eps_s_u = 2 / 100
 
     def get_stress(self, strain: float, is_ck_not_cd: bool = True) -> float:
         f_yk_yd = self.f_yk if is_ck_not_cd else self.f_yd
@@ -153,8 +166,8 @@ class RebarB500NC(RebarMaterial):
     def get_e_s_rebar(self) -> float:
         return self.e_s
 
-    def get_eps_ultimate(self) -> float:
-        return self.eps_ultimate
+    def get_eps_s_u(self) -> float:
+        return self.eps_s_u
 
 
 class RebarB400NC(RebarMaterial):
@@ -166,7 +179,7 @@ class RebarB400NC(RebarMaterial):
         self.e_s = 2 * 1e5
         self.f_yd = self.f_yk / self.gamma
         self.eps_s_y = self.f_yd / self.e_s
-        self.eps_ultimate = 2 / 100
+        self.eps_s_u = 2 / 100
 
     def get_stress(self, strain: float, is_ck_not_cd: bool = True) -> float:
         f_yk_yd = self.f_yk if is_ck_not_cd else self.f_yd
@@ -185,8 +198,8 @@ class RebarB400NC(RebarMaterial):
     def get_e_s_rebar(self) -> float:
         return self.e_s
 
-    def get_eps_ultimate(self) -> float:
-        return self.eps_ultimate
+    def get_eps_s_u(self) -> float:
+        return self.eps_s_u
 
 
 class Tendon(RebarMaterial):
@@ -237,6 +250,9 @@ class Tendon(RebarMaterial):
     def get_eps_s_y(self) -> float:
         return self.eps_s_y
 
+    def get_eps_s_u(self) -> float:
+        return self.eps_s_u
+    
     def get_e_s_rebar(self) -> float:
         return self.e_s
 
@@ -270,13 +286,19 @@ class ConcreteMaterial(Material):
         self.get_eps_cu_c_n()
         self.gamma = 1.5
 
-    def get_stress(self, strain: float, is_ck_not_cd: bool = True) -> float:
+    def get_stress(self, strain: float, is_ck_not_cd: bool = True, creep_eff: float = 0) -> float:
         # Sargin er ikke klar for ULS, men det gjør ingenting for bjelker
+        strain_eff = strain if strain > 0 else strain * (1 + creep_eff)
         if self.material_model == "Sargin":
-            return sargin_mat_model(strain, self.eps_cy, self.eps_cu, self.e_cm, self.f_cm)
+            return sargin_mat_model(strain_eff, self.eps_cy, self.eps_cu, self.e_cm, self.f_cm)
         f_ck_cd = self.f_ck if is_ck_not_cd else self.f_cd
-        return parabel_rektangel(strain, self.eps_cy, self.n, self.eps_cu, f_ck_cd)
+        return parabel_rektangel(strain_eff, self.eps_cy, self.n, self.eps_cu, f_ck_cd)
 
+    def change_material_model(self, material_model: str):
+        """Endrer materialmodell for betong"""
+        self.material_model = material_model
+        self.get_eps_cu_c_n()
+    
     def get_eps_cu(self) -> float:
         """Bruddtøyning (minus i trykk)"""
         return self.eps_cu

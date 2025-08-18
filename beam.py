@@ -83,4 +83,8 @@ if __name__ == "__main__":
     bjelkelengde: float = 4 # i m
     creep_eff: float = 0. # endrer fra 0
     karbonfiber.reset_0_state()
-    deflections = calc_deflection_with_curvatures(moment_vector, bjelkelengde)
+    deflections = calc_deflection_with_curvatures(moment_vector, bjelkelengde, tverrsnitt,
+                                                  betong_b45, rebar_material=armering,
+                                                  tendon_material=spennarmering,
+                                                  carbon_material=karbonfiber,
+                                                  eps_cs=eps_svinn, creep_eff=creep_eff)

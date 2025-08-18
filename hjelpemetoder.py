@@ -52,9 +52,15 @@ def eps_ok_uk_to_c_and_s(
     return min(eps_ok, eps_uk), 0.0, alpha
     
 
-def calc_deflection_with_curvatures(moment_vector: ndarray, lengde: float) -> Tuple[ndarray, ndarray, ndarray, float]:
+def calc_deflection_with_curvatures(moments: ndarray | float, lengde: float, tverrsnitt: Tverrsnitt,
+                                    material: ConcreteMaterial, rebar_material: RebarMaterial = None,
+                                    tendon_material: RebarMaterial = None,
+                                    carbon_material: CarbonMaterial = None, eps_cs: float = 0,
+                                    is_ck_not_cd: bool = True) -> Tuple[ndarray, ndarray, ndarray, float]:
     """Metode for å regne ut forskyvning med krumninger."""
-    curvatures = find_curvatures()
+    curvatures = find_curvatures(moments, tverrsnitt, material, rebar_material, tendon_material,
+                                 carbon_material, eps_cs, is_ck_not_cd)
+    
     # Definerer iterasjonsverdier
     tolerance = 1e-7
     max_iter = 15
@@ -63,24 +69,88 @@ def calc_deflection_with_curvatures(moment_vector: ndarray, lengde: float) -> Tu
     
     return curvatures, rotations, deflections, max_deflection
 
-def find_curvatures() -> ndarray:
-    """Placeholder for actual curvature finding logic."""
+def find_curvatures(moments: ndarray | float, tverrsnitt: Tverrsnitt, material: ConcreteMaterial,
+                    rebar_material: RebarMaterial = None, tendon_material: RebarMaterial = None,
+                    carbon_material: CarbonMaterial = None, eps_cs: float = 0,
+                    is_ck_not_cd: bool = True) -> ndarray:
+    """Metode for å finne kurvaturer langs bjelkens. Antall snitt bestemt av len(moments)"""
+    # Starter med å gjøre om en evt float til ndarray
+    if isinstance(moments, (float, int)):
+        moments = np.array([moments])
+
+    # Initialiserer verdier
+    kurvaturer: ndarray = np.zeros_like(moments)
+    eps_ok, eps_uk = -0.0005, 0.0005
+    tot_height = tverrsnitt.get_height_max
+
+    # Svinnmoment
+    z_ok: float = tot_height / 2 - tverrsnitt.get_d_top()[0] # Metoden er ikke rett for flere lag med armering
+    z_uk: float = tverrsnitt.get_d_bot[0] - tot_height / 2 # Metoden er ikke rett for flere lag med strekk
+    sum_ok_armering: float = tverrsnitt.get_sum_as_top()
+    sum_uk_armering: float = tverrsnitt.get_sum_as_bot()
+    m_svinn: float = rebar_material.get_e_s_rebar() * eps_cs * \
+        (z_ok * sum_ok_armering - z_uk * sum_uk_armering) / 1000
+
+    for i in range(moments):
+        m_i = moments[i] * 1e3 + m_svinn
+        if abs(m) < 1e-4:
+            kurvaturer[i] = 0
+            continue
+        eps_ok, eps_uk = find_equilibriums_strains()
+
+
     return np.array([0.0, 0.01, 0.02, 0.03, 0.04])  # Example curvature values
 
 def curvatures_to_deflections(curvatures: ndarray, lengde: float, tolerance: float, max_iter: int) -> Tuple[ndarray, ndarray]:
     """Konverterer krumninger til rotasjoner og forskyvninger."""
     n = len(curvatures)
     if n < 5:
-        raise ValueError("Krumninger må ha minst 5 punkter for å kunne konverteres til rotasjoner og forskyvninger.") # egentlig 3 lol
+        # egentlig 3 lol
+        raise ValueError("Krumninger må ha minst 5 punkter for å kunne konverteres til rotasjoner og forskyvninger.") 
+    
+    # Antar jevn avstand mellom beregningssnittene
+    dx = lengde / (n - 1)
+
+    # Initialiserer vektorer
     rotations = np.zeros_like(curvatures)
     deflections = np.zeros_like(curvatures)
+
+    # NR iterasjon med intiell forsøk på c. Må få 0 forskyvning i hver ende
+    c_const = -0.0004
     
     for i in range(max_iter):
-        # Iterasjon for å finne rotasjoner og forskyvninger
-        # (Implementasjon av iterasjonsmetode her)
-        pass  # Placeholder for actual implementation
+        # Rotasjoner
+        raw_rotations = cumulative_trapezoidal(curvatures, dx)
+
+        for i in range(n):
+            rotations[i] = raw_rotations[i] + c_const
+
+        # Deformasjoner
+        raw_deflections = cumulative_trapezoidal(rotations, dx)
+        deflections[:] = raw_deflections + 0  # direct assignment, no loop needed
+
+        # Sjekk grenseverdier
+        v_length = deflections[-1]
+
+        if v_length.abs() < tolerance:
+            break
+    
+        # Oppdatert c_const
+        c_const -= v_length / lengde
+    deflections[-1] = 0
     
     return rotations, deflections
+
+def cumulative_trapezoidal(y: ndarray, dx: float) -> ndarray:
+    """Integrerer opp"""
+    n = len(y)
+    integral = np.zeros_like(y)
+    
+    for i in range(1, n):
+        area = 0.5 * (y[i - 1] + y[i]) * dx
+        integral[i] = integral[i - 1] + area
+
+    return integral
 
 def help_function_grid(
     eps_ok: float,

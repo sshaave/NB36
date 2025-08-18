@@ -131,6 +131,7 @@ class RebarMaterial(Material):
         
     @abstractmethod
     def get_e_s_rebar(self) -> float:
+        """E-modulus i N/mm2"""
         pass
     
     @abstractmethod

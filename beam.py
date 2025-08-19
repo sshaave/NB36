@@ -55,6 +55,7 @@ if __name__ == "__main__":
     
     # Momentverdier langs bjelken i det karbonfiberen monteres
     moment_vector = np.array([0, 1, 2, 3, 4, 8, 12, 16, 32, 16, 12, 8, 4, 3, 2, 1, 0])
+    moment_vector *= 1
     # TODO! lag funksjon som henter moment fra linjelast
     
     # Svinntøyning og effektivt kryptall

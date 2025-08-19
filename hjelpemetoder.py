@@ -4,7 +4,7 @@ from numpy import ndarray
 from typing import Tuple
 
 from materialmodeller import CarbonMaterial, ConcreteMaterial, RebarMaterial
-from strain_profile import find_curvatures
+from find_curvatures import find_curvatures
 from tverrsnitt import Tverrsnitt
 
 def eps_ok_uk_to_c_and_s(
@@ -101,7 +101,7 @@ def curvatures_to_deflections(curvatures: ndarray, lengde: float, tolerance: flo
         # Sjekk grenseverdier
         v_length = deflections[-1]
 
-        if v_length.abs() < tolerance:
+        if abs(v_length) < tolerance:
             break
     
         # Oppdatert c_const

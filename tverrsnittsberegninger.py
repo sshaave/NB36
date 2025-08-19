@@ -1,6 +1,7 @@
 """Tverrsnittsberegninger for karbonfiberforsterket spennarmert betongtverrsnitt"""
 
 import math
+import sys
 from typing import Tuple
 import numpy as np
 from numpy import array, ndarray
@@ -618,7 +619,7 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
                              ) -> Tuple[float, float, float, float]:
     """Finner likevektstøyninger for et gitt moment"""
     tolerance, regularization, prev_norm, delta = 0.0001, 1e-9, 1e12, 1e-8
-    max_iterations, incr = 200, 0.0009
+    max_iterations, incr = 100, 0.0009
     eps_cu_eff: float = material.get_eps_cu() * (1 + creep_eff) if is_ck_not_cd else material.get_eps_cu()
     if rebar_material is not None:
         eps_s_u: float = rebar_material.get_eps_s_u()
@@ -636,6 +637,12 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
                 moment, material, rebar_material, rebar_pre_material, carbon_material=carbon_material,
                 creep_eff=creep_eff, is_ck_not_cd=is_ck_not_cd)
         current_norm = np.sqrt(f_internal ** 2 + m_internal ** 2)
+        
+        # Check for NaN in f_internal
+        if np.isnan(f_internal):
+            print("NaN detected in f_internal, aborting iteration.")
+            print(f"Error. eps_ok:{eps_ok:.7f}, eps_uk:{eps_uk:.7f}. Iteration: {i}")
+            sys.exit()
         
         if abs(f_internal) < tolerance and m_internal < tolerance and i > 0:
             # Konvergens oppnådd

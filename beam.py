@@ -59,7 +59,7 @@ if __name__ == "__main__":
     # TODO! lag funksjon som henter moment fra linjelast
     
     # Svinntøyning og effektivt kryptall
-    eps_svinn: float = 0.0001 # 0.01 % eksempelverdi
+    eps_svinn: float = -0.0001 # 0.01 % eksempelverdi
     creep_eff: float = 0.  # eksempelverdi
     
     
@@ -84,6 +84,7 @@ if __name__ == "__main__":
     bjelkelengde: float = 4 # i m
     creep_eff: float = 0. # endrer fra 0
     karbonfiber.reset_0_state()
+    spennarmering.prestressd_to(0)
     deflections = calc_deflection_with_curvatures(moment_vector, bjelkelengde, tverrsnitt,
                                                   betong_b45, rebar_material=armering,
                                                   tendon_material=spennarmering,

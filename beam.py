@@ -59,7 +59,7 @@ if __name__ == "__main__":
     # TODO! lag funksjon som henter moment fra linjelast
     
     # Svinntøyning og effektivt kryptall
-    eps_svinn: float = -0.0001 # 0.01 % eksempelverdi
+    eps_svinn: float = 0#.0001 # 0.01 % eksempelverdi
     creep_eff: float = 0.  # eksempelverdi
     
     

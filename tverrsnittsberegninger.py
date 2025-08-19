@@ -620,6 +620,7 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
     """Finner likevektstøyninger for et gitt moment"""
     tolerance, regularization, prev_norm, delta = 0.0001, 1e-9, 1e12, 1e-8
     max_iterations, incr = 100, 0.0009
+    delta_max = 1e-5
     eps_cu_eff: float = material.get_eps_cu() * (1 + creep_eff) if is_ck_not_cd else material.get_eps_cu()
     if rebar_material is not None:
         eps_s_u: float = rebar_material.get_eps_s_u()
@@ -698,8 +699,9 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
             base = min(base * 1.1, 1.0)
         else:
             base *= 0.85 # Reduseres ved ingen forbedring
-            
-        delta_top, delta_bottom = delta_epsilon[0] * base, delta_epsilon[1] * base
+    
+        delta_top = max(abs(delta_epsilon[0] * base), delta_max) * np.sign(delta_epsilon[0])
+        delta_bottom = max(abs(delta_epsilon[1] * base), delta_max) * np.sign(delta_epsilon[1])
 
         # Update strains
         # Clamp the strains to avoid overshooting boundaries

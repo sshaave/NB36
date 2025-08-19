@@ -1,38 +1,24 @@
-import math
 from typing import Tuple
 import numpy as np
-from numpy import array, ndarray
-from NB36.tverrsnittsberegninger import section_integrator
-from NB36.hjelpemetoder import eps_ok_uk_to_c_and_s
+from numpy import ndarray
+from tverrsnittsberegninger import section_integrator, find_equilibrium_strains
+from hjelpemetoder import eps_ok_uk_to_c_and_s
 from materialmodeller import (
-    CarbonFiber,
     CarbonMaterial,
     ConcreteMaterial,
     RebarMaterial,
-    Material,
-    RebarB400NC,
-    RebarB500NC,
-    Tendon,
 )
+from tverrsnitt import Tverrsnitt
 
 def nr_find_strain_profile(
     width: ndarray,
     height: ndarray,
+    tverrsnitt: Tverrsnitt,
     concrete_material: ConcreteMaterial,
     rebar_material: RebarMaterial,
     tendon_material: RebarMaterial,
     carbon_material: CarbonMaterial,
     creep: float,
-    as_bot: ndarray,
-    as_top: ndarray,
-    d_bot: ndarray,
-    d_top: ndarray,
-    a_pre_bot: ndarray,
-    a_pre_top: ndarray,
-    d_pre_bot: ndarray,
-    d_pre_top: ndarray,
-    a_carbon: ndarray,
-    d_carbon: ndarray,
     f_ck_or_cd: int) -> Tuple[float, float, float, float, float, float, float]:
     """Returnerer eps_ok, eps_uk, alpha, mom_strekk, z, f_strekk, f_trykk"""
 
@@ -61,6 +47,8 @@ def nr_find_strain_profile(
         
         eps_ok, eps_uk = max_eps_ok, max_eps_uk / 10.
         step_size: float = 1.0
+        d_bot = tverrsnitt.get_d_bot()[0]
+        d_top = tverrsnitt.get_d_top()[0]
 
         # Starter iterasjon
         for iteration in range(max_iterations):
@@ -68,9 +56,9 @@ def nr_find_strain_profile(
                 eps_ok, eps_uk, height, strekk_uk, not strekk_uk,
                 d_bot if find_uk else d_top, d_top if find_uk else d_bot
             )
-            alpha, f_trykk, f_strekk, z = section_integrator(eps_ok, eps_s, height, concrete_material, rebar_material,
-                as_bot, as_top, d_bot, d_top, creep, a_pre_bot, a_pre_top, d_pre_bot, d_pre_top, tendon_material,
-                a_carbon, d_carbon, carbon_material, f_ck_or_cd)
+            alpha, f_trykk, f_strekk, z = section_integrator(eps_ok, eps_s, tverrsnitt, concrete_material,
+                                                             rebar_material, creep, tendon_material,
+                                                             carbon_material, f_ck_or_cd)
             
             f = max(f_strekk / (-f_trykk), 1e-6) - 1.0
             

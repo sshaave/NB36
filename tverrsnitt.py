@@ -50,10 +50,58 @@ class Tverrsnitt():
     def get_d_top(self) -> ndarray:
         return self.d_top
     
-    def get_a_bot_sum(self) -> ndarray:
+    def get_d_top_avg(self) -> float:
+        """UTEN KF. Returnerer tyngdepunktet av d for armeringen i OK (ikke bare ytterste laget)."""
+        d_area = 0.0
+        sum_area = 0.0
+        for d, a_i in zip(self.d_top, self.as_area_top):
+            d_area += d * a_i
+            sum_area += a_i
+        for d, a_i in zip(self.d_pre_top, self.a_pre_top):
+            d_area += d * a_i
+            sum_area += a_i
+        if sum_area == 0:
+            return 0.0
+        d_avg_top = d_area / sum_area
+        return d_avg_top
+    
+    def get_d_bot_avg(self) -> float:
+        """UTEN KF. Returnerer tyngdepunktet av d for armeringen i UK (ikke bare ytterste laget)."""
+        d_area = 0.0
+        sum_area = 0.0
+        for d, a_i in zip(self.d_bot, self.as_area_bot):
+            d_area += d * a_i
+            sum_area += a_i
+        for d, a_i in zip(self.d_pre_bot, self.a_pre_bot):
+            d_area += d * a_i
+            sum_area += a_i
+        if sum_area == 0:
+            return 0.0
+        d_avg_bot = d_area / sum_area
+        return d_avg_bot
+    
+    def get_d_bot_avg_cf(self) -> float:
+        """Returnerer tyngdepunktet av d for armeringen i UK (ikke bare ytterste laget)."""
+        d_area = 0.0
+        sum_area = 0.0
+        for d, a_i in zip(self.d_bot, self.as_area_bot):
+            d_area += d * a_i
+            sum_area += a_i
+        for d, a_i in zip(self.d_pre_bot, self.a_pre_bot):
+            d_area += d * a_i
+            sum_area += a_i
+        for d, a_i in zip(self.d_carbon, self.a_carbon):
+            d_area += d * a_i
+            sum_area += a_i
+        if sum_area == 0:
+            return 0.0
+        d_avg_bot = d_area / sum_area
+        return d_avg_bot
+
+    def get_a_bot_sum(self) -> float:
         return np.sum(self.as_area_bot) + np.sum(self.a_pre_bot)
     
-    def get_a_top_sum(self) -> ndarray:
+    def get_a_top_sum(self) -> float:
         return np.sum(self.as_area_top) + np.sum(self.a_pre_top)
 
     def get_a_pre_bot(self) -> ndarray:

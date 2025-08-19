@@ -4,6 +4,7 @@ from numpy import ndarray
 from typing import Tuple
 
 from materialmodeller import CarbonMaterial, ConcreteMaterial, RebarMaterial
+from strain_profile import find_curvatures
 from tverrsnitt import Tverrsnitt
 
 def eps_ok_uk_to_c_and_s(
@@ -68,40 +69,6 @@ def calc_deflection_with_curvatures(moments: ndarray | float, lengde: float, tve
     
     return curvatures, rotations, deflections, max_deflection
 
-def find_curvatures(moments: ndarray | float, tverrsnitt: Tverrsnitt, material: ConcreteMaterial,
-                    rebar_material: RebarMaterial = None, tendon_material: RebarMaterial = None,
-                    carbon_material: CarbonMaterial = None, eps_cs: float = 0, creep_eff: float = 0,
-                    is_ck_not_cd: bool = True) -> ndarray:
-    from tverrsnittsberegninger import find_equilibrium_strains
-    """Metode for å finne kurvaturer langs bjelkens. Antall snitt bestemt av len(moments)"""
-    # Starter med å gjøre om en evt float til ndarray
-    if isinstance(moments, (float, int)):
-        moments = np.array([moments])
-
-    # Initialiserer verdier
-    kurvaturer: ndarray = np.zeros_like(moments)
-    eps_ok, eps_uk = -0.0005, 0.0005
-    tot_height = tverrsnitt.get_height_max()
-
-    # Svinnmoment
-    z_ok: float = tot_height / 2 - tverrsnitt.get_d_top()[0] # Metoden er ikke rett for flere lag med armering
-    z_uk: float = tverrsnitt.get_d_bot()[0] - tot_height / 2 # Metoden er ikke rett for flere lag med strekk
-    sum_ok_armering: float = tverrsnitt.get_sum_as_top()
-    sum_uk_armering: float = tverrsnitt.get_sum_as_bot()
-    m_svinn: float = rebar_material.get_e_s_rebar() * eps_cs * \
-        (z_ok * sum_ok_armering - z_uk * sum_uk_armering) / 1000
-
-    for i in range(moments):
-        m_i = moments[i] * 1e3 + m_svinn
-        if abs(m_i) < 1e-4:
-            kurvaturer[i] = 0
-            continue
-        eps_ok, eps_uk, _, _ = find_equilibrium_strains(m_i, material, tverrsnitt, rebar_material, tendon_material,
-                                                  carbon_material, creep_eff, eps_ok, eps_uk, is_ck_not_cd)
-        kurvaturer[i] = (eps_ok - eps_uk) / tot_height
-
-
-    return kurvaturer
 
 def curvatures_to_deflections(curvatures: ndarray, lengde: float, tolerance: float, max_iter: int) -> Tuple[ndarray, ndarray]:
     """Konverterer krumninger til rotasjoner og forskyvninger."""

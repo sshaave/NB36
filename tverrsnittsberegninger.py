@@ -134,7 +134,7 @@ def section_integrator(
     eps_s = eps_uk - delta_eps * (height - d_0)  # Geometrisk tøyning i sone 0
     # eps_s_d0: float = eps_uk + delta_eps * d_0
     eps_s_d0 = eps_s
-    alpha: float = min(max(eps_ok / (eps_ok - eps_s_d0), 0), 1)
+    alpha: float = min(max(-eps_ok / (eps_s_d0 - eps_ok), 0), 1)
     if alpha in (0, 1):
         # Ugyldig verdi, feil i utregning
         print("feil i alpha", alpha)
@@ -619,7 +619,7 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
                              ) -> Tuple[float, float, float, float]:
     """Finner likevektstøyninger for et gitt moment"""
     tolerance, regularization, prev_norm, delta = 0.0001, 1e-9, 1e12, 1e-8
-    max_iterations, incr = 100, 0.0009
+    max_iterations, incr = 50, 0.0009
     delta_max = 1e-5
     eps_cu_eff: float = material.get_eps_cu() * (1 + creep_eff) if is_ck_not_cd else material.get_eps_cu()
     if rebar_material is not None:
@@ -663,7 +663,7 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
                                                 rebar_material, rebar_pre_material, carbon_material,
                                                 is_ck_not_cd, creep_eff, steps, search_step)
             continue
-        if i % 14 == 0 and i > 0:
+        if i % 1400 == 0 and i > 0: # endre til i % 14 på sikt
             steps: float = 7 if i > 30 else 15
             eps_ok, eps_uk = help_function_steepest(eps_ok, eps_uk, moment,
                     tverrsnitt, material, rebar_material, rebar_pre_material,
@@ -711,6 +711,14 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
         # Hvis 0 tøyning
         if eps_uk == 0 and eps_ok == 0:
             eps_uk = 0.00070 + i * 0.00001
+            
+        # Bør erstattes på sikt
+        if eps_uk <= 0.:
+            eps_uk = 1.1e-8 + i * 1e-9
+            base *= 0.9
+        if eps_ok >= 0.:
+            eps_ok = -1.1e-8 - i * 1e-9
+            base *= 0.9
         
         # Oppdaterer prev_norm for neste iterasjon
         prev_norm = current_norm

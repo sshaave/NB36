@@ -47,10 +47,16 @@ def integrate_cross_section(
 
         eps_i = eps_uk + delta_e * (i - 0.5)
         sigma_i = material.get_stress(eps_i, creep_eff=creep_eff)
+        if sigma_i == 0 and eps_i != 0:
+            print(f"eps_i: {eps_i}, sigma_i: {sigma_i}, height_i: {height_i}, delta_h: {delta_h}")
+        sigma_i = material.get_stress(eps_i, creep_eff=creep_eff)
         f_i = area_i * sigma_i
         sum_f += f_i
         sum_mom += f_i * (height_i - height_ec_zero - delta_h / 2)
     sum_mom = abs(sum_mom)
+    if sum_f == 0:
+        print(f"Feil i integrering av tverrsnitt. eps_ok: {eps_ok}, eps_uk: {eps_uk}, sum_f: {sum_f}")
+        sys.exit(1)
     d_alpha_d = sum_mom / abs(sum_f)
 
     return sum_f, d_alpha_d
@@ -137,7 +143,7 @@ def section_integrator(
     alpha: float = min(max(-eps_ok / (eps_s_d0 - eps_ok), 0), 1)
     if alpha in (0, 1):
         # Ugyldig verdi, feil i utregning
-        print("feil i alpha", alpha)
+        print(f"feil i alpha. eps_ok: {eps_ok:.6f}, eps_uk: {eps_uk:.6f}", alpha)
 
     # Ønsker å finne hvilke lag som har strekk og trykk (og størrelse på kreftene)
     # Slakkarmering
@@ -618,8 +624,8 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
                              is_ck_not_cd: bool = True,
                              ) -> Tuple[float, float, float, float]:
     """Finner likevektstøyninger for et gitt moment"""
-    tolerance, regularization, prev_norm, delta = 0.0001, 1e-9, 1e12, 1e-8
-    max_iterations, incr = 50, 0.0009
+    tolerance, regularization, prev_norm, delta = 0.001, 1e-9, 1e12, 1e-8
+    max_iterations, incr = 150, 0.0009
     delta_max = 1e-5
     eps_cu_eff: float = material.get_eps_cu() * (1 + creep_eff) if is_ck_not_cd else material.get_eps_cu()
     if rebar_material is not None:
@@ -650,7 +656,7 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
             return eps_ok, eps_uk, f_internal, m_internal
         if i % 50 == 0 and i > 0:
             # Reduserer steglengden
-            incr = max(incr * 0.5, 0.00005) 
+            incr = max(incr * 0.5, 0.00005)
             print(f"Reducing step size to {incr} at iteration {i}")
         
         # implementer metode for å flytte oss i løsningsrommet for å finne bedre gradienter
@@ -662,6 +668,11 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
             eps_ok, eps_uk = help_function_grid(eps_ok, eps_uk, moment, tverrsnitt, material,
                                                 rebar_material, rebar_pre_material, carbon_material,
                                                 is_ck_not_cd, creep_eff, steps, search_step)
+            # Bør erstattes på sikt
+            if eps_uk <= 0.:
+                eps_uk = 1.1e-8 + i * 1e-9
+            if eps_ok >= 0.:
+                eps_ok = -1.1e-8 - i * 1e-9
             continue
         if i % 1400 == 0 and i > 0: # endre til i % 14 på sikt
             steps: float = 7 if i > 30 else 15
@@ -700,13 +711,15 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
         else:
             base *= 0.85 # Reduseres ved ingen forbedring
     
-        delta_top = max(abs(delta_epsilon[0] * base), delta_max) * np.sign(delta_epsilon[0])
-        delta_bottom = max(abs(delta_epsilon[1] * base), delta_max) * np.sign(delta_epsilon[1])
+        delta_top = min(abs(delta_epsilon[0] * base), delta_max) * np.sign(delta_epsilon[0])
+        delta_bottom = min(abs(delta_epsilon[1] * base), delta_max) * np.sign(delta_epsilon[1]) # obs obs er min max feil?
 
         # Update strains
         # Clamp the strains to avoid overshooting boundaries
-        eps_ok = max(min(eps_ok + delta_top, eps_s_u), eps_cu_eff)
-        eps_uk = max(min(eps_uk + delta_bottom, eps_s_u), eps_cu_eff)
+        #eps_ok = max(min(eps_ok + delta_top, eps_s_u), eps_cu_eff)
+        #eps_uk = max(min(eps_uk + delta_bottom, eps_s_u), eps_cu_eff)
+        eps_ok = max(eps_ok + delta_top, eps_cu_eff)
+        eps_uk = min(eps_uk + delta_bottom, eps_s_u)
         
         # Hvis 0 tøyning
         if eps_uk == 0 and eps_ok == 0:

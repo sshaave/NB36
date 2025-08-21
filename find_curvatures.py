@@ -16,7 +16,7 @@ def find_curvatures(moments: ndarray | float, tverrsnitt: Tverrsnitt, material: 
         moments = np.array([moments])
 
     # Initialiserer verdier
-    kurvaturer: ndarray = np.zeros_like(moments)
+    kurvaturer: ndarray = np.zeros_like(moments, dtype=float)
     eps_ok, eps_uk = -0.0005, 0.0005
     tot_height = tverrsnitt.get_height_max()
 
@@ -40,6 +40,7 @@ def find_curvatures(moments: ndarray | float, tverrsnitt: Tverrsnitt, material: 
             carbon_material, creep_eff, eps_ok, eps_uk, is_ck_not_cd
         )
         kurvaturer[i] = (eps_ok - eps_uk) / tot_height
+        print(f"Kurvatur {i}: {kurvaturer[i]:.12f}  (eps_ok: {eps_ok:.7f}, eps_uk: {eps_uk:.7f})")
 
 
     return kurvaturer

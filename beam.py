@@ -20,7 +20,7 @@ if __name__ == "__main__":
     karbonfiber: CarbonMaterial = CarbonFiber()
     
     # Definerer tverrsnitt
-    height = 600
+    height = 350
 
     # Definerer vanlig armering
     as_area_bot = np.array([0])

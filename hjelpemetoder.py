@@ -81,8 +81,8 @@ def curvatures_to_deflections(curvatures: ndarray, lengde: float, tolerance: flo
     dx = lengde / (n - 1)
 
     # Initialiserer vektorer
-    rotations = np.zeros_like(curvatures)
-    deflections = np.zeros_like(curvatures)
+    rotations = np.zeros_like(curvatures, dtype=float)
+    deflections = np.zeros_like(curvatures, dtype=float)
 
     # NR iterasjon med intiell forsøk på c. Må få 0 forskyvning i hver ende
     c_const = -0.0004
@@ -113,7 +113,7 @@ def curvatures_to_deflections(curvatures: ndarray, lengde: float, tolerance: flo
 def cumulative_trapezoidal(y: ndarray, dx: float) -> ndarray:
     """Integrerer opp"""
     n = len(y)
-    integral = np.zeros_like(y)
+    integral = np.zeros_like(y, dtype=float)
     
     for i in range(1, n):
         area = 0.5 * (y[i - 1] + y[i]) * dx
@@ -144,8 +144,8 @@ def help_function_grid(
 
     for d_ok in range(-steps, steps + 1):
         for d_uk in range(-steps, steps + 1):
-            eps_ok_test = eps_ok + d_ok * search_step
-            eps_uk_test = eps_uk + d_uk * search_step
+            eps_ok_test = min(eps_ok + d_ok * search_step, -1.1e-8)
+            eps_uk_test = max(eps_uk + d_uk * search_step, 1.1e-8)
             
             f_i, m_i = innerstate_beam(eps_ok_test, eps_uk_test, tverrsnitt, moment, material, rebar_material, rebar_pre_material, carbon_material, creep_eff, is_ck_not_cd)
             norm = np.sqrt(f_i**2 + m_i**2)

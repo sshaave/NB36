@@ -141,9 +141,9 @@ def section_integrator(
     # eps_s_d0: float = eps_uk + delta_eps * d_0
     eps_s_d0 = eps_s
     alpha: float = min(max(-eps_ok / (eps_s_d0 - eps_ok), 0), 1)
-    if alpha in (0, 1):
+    """if __debug__ and alpha in (0, 1):
         # Ugyldig verdi, feil i utregning
-        print(f"feil i alpha. eps_ok: {eps_ok:.6f}, eps_uk: {eps_uk:.6f}", alpha)
+        print(f"feil i alpha. eps_ok: {eps_ok:.6f}, eps_uk: {eps_uk:.6f}", alpha)"""
 
     # Ønsker å finne hvilke lag som har strekk og trykk (og størrelse på kreftene)
     # Slakkarmering
@@ -166,7 +166,10 @@ def section_integrator(
     # Summerer kreftene (selv om de er 0)
     sum_f_strekk_armering: float = np.sum(f_strekk)
     sum_f_trykk_armering: float = np.sum(f_trykk)
-    d_strekk_rebar: float = np.dot(f_strekk, d_strekk) / max(sum_f_strekk_armering, 1)
+    if sum_f_strekk_armering == 0:
+        d_strekk_rebar: float = 0
+    else:
+        d_strekk_rebar: float = np.dot(f_strekk, d_strekk) / max(sum_f_strekk_armering, 1)
 
     if tendon_material is not None:
         if d_pre_top is not None:
@@ -192,9 +195,12 @@ def section_integrator(
         )
         f_strekk_tendon: float = np.sum(f_strekk_tendon_vec)
         f_trykk_tendon: float = np.sum(f_trykk_tendon_vec)
-        d_strekk_tendon_avg: float = (
-            np.dot(f_strekk_tendon_vec, d_strekk_tendon) / f_strekk_tendon
-        )
+        if f_strekk_tendon == 0:
+            d_strekk_tendon_avg: float = 0
+        else:
+            d_strekk_tendon_avg: float = (
+                np.dot(f_strekk_tendon_vec, d_strekk_tendon) / f_strekk_tendon
+            )
 
         # Må sjekke om trykk er 0 før deling
         if f_trykk_tendon == 0:
@@ -228,9 +234,12 @@ def section_integrator(
         f_trykk_karbon: float = np.sum(f_trykk_karbon_vec)
         m_strekk_karbon: float = np.dot(f_strekk_karbon_vec, d_strekk_karbon)
         m_trykk_karbon: float = np.dot(f_trykk_karbon_vec, d_trykk_karbon)
-        d_strekk_karbon_avg: float = (
-            m_strekk_karbon / f_strekk_karbon if f_strekk_karbon > 0 else 0
-        )
+        if f_strekk_karbon == 0:
+            d_strekk_karbon_avg: float = 0
+        else:
+            d_strekk_karbon_avg: float = (
+                m_strekk_karbon / f_strekk_karbon if f_strekk_karbon > 0 else 0
+            )
 
         # Må sjekke om trykk er 0 før deling
         if f_trykk_karbon == 0:
@@ -245,8 +254,8 @@ def section_integrator(
         d_trykk_karbon_avg: float = 0
 
     # Tyngdepunkt for armering
-    if sum_f_strekk_armering == 0 and f_strekk_tendon == 0:
-        print("sum_strekkrefter er 0")
+    #if sum_f_strekk_armering == 0 and f_strekk_tendon == 0:
+    #    print("sum_strekkrefter er 0")
     if sum_f_strekk_armering > 0 or f_strekk_tendon > 0:
         d_strekk_avg: float = (
             d_strekk_rebar * sum_f_strekk_armering
@@ -657,7 +666,7 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
         if i % 50 == 0 and i > 0:
             # Reduserer steglengden
             incr = max(incr * 0.5, 0.00005)
-            print(f"Reducing step size to {incr} at iteration {i}")
+            #print(f"Reducing step size to {incr} at iteration {i}")
         
         # implementer metode for å flytte oss i løsningsrommet for å finne bedre gradienter
         if i % 23 == 0 and i > 0:
@@ -736,8 +745,8 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
         # Oppdaterer prev_norm for neste iterasjon
         prev_norm = current_norm
         
-        if i == 90:
-            print("Over 90 iterasjoner")
+        #if i == 90:
+            #print("Over 90 iterasjoner")
     print("Max iterations reached without convergence")
         
     return 0, 0, 0, 0
@@ -766,7 +775,7 @@ def testing_strain_part():
     betong_b35: ConcreteMaterial = ConcreteMaterial(35, material_model="Parabola")
     armering: RebarMaterial = RebarB500NC()
     spennarmering: RebarMaterial = Tendon()
-    spennarmering.prestressd_to(115)
+    spennarmering.set_fp(115)
 
     # height = np.array(300)
     height = 300

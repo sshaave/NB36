@@ -218,11 +218,15 @@ class Tendon(RebarMaterial):
         self.eps_s_y: float = self.f_yk / self.e_s / self.gamma
         self.eps_s_u: float = 0.037 * 0.9
 
-    def prestressd_to(self, force: float):
+    def set_fp(self, force: float):
         """Sett oppspenningskraften i kN for instansen. Vanligvis 115 kN ish"""
         self.f_p = force * 1000  # self.f_p i N
         sigma_0: float = self.f_p / self.area
         self.eps_0 = sigma_0 / self.e_s
+    
+    def get_fp(self) -> float:
+        """Hent ut forspenningskraft i kN"""
+        return self.f_p / 1000
 
     def get_stress(self, strain: float, is_ck_not_cd: bool = True) -> float:
         """Hent ut spenning fra tøyning. Enhet: N/mm2"""

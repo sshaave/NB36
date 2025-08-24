@@ -29,8 +29,8 @@ if __name__ == "__main__":
     d_top = np.array([40])
 
     # Definerer spennarmering
-    spennarmering.prestressd_to(0)
-    antall_vector_ok = np.array([2])
+    spennarmering.set_fp(2)
+    antall_vector_ok = np.array([0])
     antall_vector_uk = np.array([4, 2])# np.array([4, 6, 4, 2])
     area_vector_ok = spennarmering.get_area(antall_vector_ok)
     area_vector_uk = spennarmering.get_area(antall_vector_uk)
@@ -54,7 +54,7 @@ if __name__ == "__main__":
                              a_carbon=carbon_vector, d_carbon=d_carbon,)
     
     # Momentverdier langs bjelken i det karbonfiberen monteres
-    moment_vector = np.array([0, 1, 2, 3, 4, 8, 12, 16, 32, 16, 12, 8, 4, 3, 2, 1, 0])
+    moment_vector = np.array([0, 1, 2, 3, 4, 8, 12, 16, 52, 16, 12, 8, 4, 3, 2, 1, 0])
     moment_vector *= 1
     # TODO! lag funksjon som henter moment fra linjelast
     
@@ -84,7 +84,6 @@ if __name__ == "__main__":
     bjelkelengde: float = 4 # i m
     creep_eff: float = 0. # endrer fra 0
     karbonfiber.reset_0_state()
-    spennarmering.prestressd_to(0)
     deflections = calc_deflection_with_curvatures(moment_vector, bjelkelengde, tverrsnitt,
                                                   betong_b45, rebar_material=armering,
                                                   tendon_material=spennarmering,

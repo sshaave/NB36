@@ -7,6 +7,16 @@ from materialmodeller import CarbonMaterial, ConcreteMaterial, RebarMaterial
 from find_curvatures import find_curvatures
 from tverrsnitt import Tverrsnitt
 
+def eps_c_and_eps_s_to_eps_ok_uk(
+    eps_c: float,
+    eps_s: float,
+    height: float,
+    d0_strekk: float) -> Tuple[float, float]:
+    delta_eps: float = (eps_s - eps_c) / height
+    eps_uk = eps_s + delta_eps * (height - d0_strekk)
+    
+    return eps_c, eps_uk
+
 def eps_ok_uk_to_c_and_s(
     eps_ok: float,
     eps_uk: float,
@@ -135,8 +145,8 @@ def help_function_grid(
     steps: int = 7,
     search_step: float = 0.000005
 ) -> Tuple[float, float]:
-    from tverrsnittsberegninger import innerstate_beam
     """Hjelpemetode for å finne tøyninger ved hjelp av grid search."""
+    from tverrsnittsberegninger import innerstate_beam
     # Implementasjon av grid search for å finne eps_ok og eps_uk
     best_norm = 1e12
     best_eps_ok = eps_ok
@@ -227,3 +237,10 @@ def find_eps_carbon(eps_ok: float, eps_uk: float, tverrsnitt: Tverrsnitt) -> flo
         print("Warning: NaN value encountered in carbon strain calculation.")
         return 0.0
     return snitt_eps_karbon
+
+def get_moments_simply_supported_beam(q: float, length: float, num_points: int = 21, max_seg_length: float = 0.2) -> ndarray:
+    """Hjelpemetode for å finne momentfordeling i en enkeltspennsbjelke med jevnt fordelt last."""
+    division_number = max(num_points, int(length / max_seg_length))
+    x_points = np.linspace(0, length, division_number)
+    moment_vector = q * x_points * (length - x_points) / 2
+    return moment_vector

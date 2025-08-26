@@ -50,6 +50,11 @@ class Tverrsnitt():
     def get_d_top(self) -> ndarray:
         return self.d_top
     
+    def get_d0_bot(self) -> float:
+        if len(self.d_pre_bot) == 0:
+            return self.d_bot[0]
+        return self.d_pre_bot[0]
+    
     def get_d_top_avg(self) -> float:
         """UTEN KF. Returnerer tyngdepunktet av d for armeringen i OK (ikke bare ytterste laget)."""
         d_area = 0.0

@@ -10,10 +10,9 @@ from materialmodeller import (
     ConcreteMaterial,
     RebarMaterial,
     Material,
-    RebarB500NC,
     Tendon,
 )
-from hjelpemetoder import help_function_grid, help_function_steepest
+from hjelpemetoder import eps_c_and_eps_s_to_eps_ok_uk, help_function_grid, help_function_steepest
 from tverrsnitt import Tverrsnitt
 
 def integrate_cross_section(
@@ -312,7 +311,6 @@ def objective_function_eps_s(
     creep_eff,
     rebar_pre_material: RebarMaterial = None,
     carbon_material: CarbonMaterial = None,
-    moment_zero_state: float = 0,
     is_ck_not_cd: bool = True,
 ):
     """
@@ -353,16 +351,16 @@ def objective_function_eps_c(
     creep_eff: float = 0,
     rebar_pre_material: RebarMaterial = None,
     carbon_material: CarbonMaterial = None,
-    moment_zero_state: float = 0,
     is_ck_not_cd: bool = True,
 ):
     """
     Metode som kaller "calc_inner_state" og returnerer riktig versjon av M / M.
     """
     # Kaller funksjonen calc_inner_state for å beregne indre tilstand
+    eps_ok, eps_uk = eps_c_and_eps_s_to_eps_ok_uk(eps_c, eps_s, tverrsnitt.get_height_max(), tverrsnitt.get_d0_bot())
     alpha, f_b, f_s, z = section_integrator(
-        eps_c,
-        eps_s,
+        eps_ok,
+        eps_uk,
         tverrsnitt,
         material,
         rebar_material,
@@ -377,7 +375,7 @@ def objective_function_eps_c(
     mom_b = abs(f_b * z)
 
     # Returnerer objektfunksjonsverdien og andre relevante verdier
-    return mom_b / max(mom_s, 1e-6) - 1.0, alpha, mom_b, z
+    return mom_b / max(mom_s, 1e-6) - 1.0, alpha, mom_s, mom_b, z
 
 
 def newton_optimize_eps_s(
@@ -389,7 +387,6 @@ def newton_optimize_eps_s(
     creep_eff,
     rebar_pre_material: RebarMaterial = None,
     carbon_material: CarbonMaterial = None,
-    moment_zero_state: float = 0,
     is_ck_not_cd: bool = True,
 ):
     """
@@ -466,7 +463,6 @@ def newton_optimize_eps_c(
     creep_eff,
     rebar_pre_material: RebarMaterial = None,
     carbon_material: CarbonMaterial = None,
-    moment_zero_state: float = 0,
     is_ck_not_cd: bool = True,
 ):
     """
@@ -486,7 +482,7 @@ def newton_optimize_eps_c(
         iterations += 1
 
         # Regne ut objektfunksjonen og dens deriverte
-        f_value, alpha, mom_b, z = objective_function_eps_c(
+        f_value, alpha, mom_s, mom_b, z = objective_function_eps_c(
             eps_s,
             eps_c,
             tverrsnitt,
@@ -500,7 +496,7 @@ def newton_optimize_eps_c(
         abs_f_value = abs(f_value)
         fortegn_tracker[iterations % 3] = np.sign(f_value)
 
-        f_value2, _, _, _ = objective_function_eps_c(
+        f_value2, _, _, _ , _= objective_function_eps_c(
             eps_s,
             eps_c + h,
             tverrsnitt,
@@ -539,11 +535,10 @@ def newton_optimize_eps_c(
 
         # Sjekk mot konvergenskriteriet
         if abs_f_value < tolerance:
-            print("Iteration: ", iterations)
             return eps_c, alpha, mom_b, z
 
     # Hvis maks antall iterasjoner er nådd uten konvergens
-    return -1.0, -1.0, -1.0, -1.0
+    return -1.0, -1.0, -1.0, -1.0, -1.0
 
 
 def integration_iterator_ultimate(
@@ -553,7 +548,6 @@ def integration_iterator_ultimate(
     rebar_pre_material: RebarMaterial = None,
     carbon_material: CarbonMaterial = None,
     creep_eff: float = 0,
-    moment_zero_state: float = 0
 ) -> float:
     """For ULS"""
     # Moment_zeroState er momentet som ligger i momentmaks når karbonfiber limes og monteres.
@@ -779,66 +773,3 @@ def get_width(height_i: float, var: float) -> float:
         return 100 + 320 * rel_height / 50
     return 420
 
-def testing_strain_part():
-    """Brukt for å teste evaluate reinforcement blant annet"""
-    betong_b35: ConcreteMaterial = ConcreteMaterial(35, material_model="Parabola")
-    armering: RebarMaterial = RebarB500NC()
-    spennarmering: RebarMaterial = Tendon()
-    spennarmering.set_fp(115)
-
-    # height = np.array(300)
-    height = 300
-    as_area_bot = np.array([228 * 3.14, 64 * 3.14])
-    as_area_top = np.array([64 * 3.14])
-    d_bot = np.array([250, 200])
-    d_top = np.array([50])
-    tverrsnitt: Tverrsnitt = Tverrsnitt(height=height, as_area_bot=as_area_bot, as_area_top=as_area_top,
-                                       d_bot=d_bot, d_top=d_top)
-    alpha, mom, eps_s, eps_c, z = integration_iterator_ultimate(
-        height, as_area_bot, as_area_top, d_bot, d_top, betong_b35, armering
-    )
-    # print("alpha:", alpha, ". eps_c:", eps_c, "eps_s:", eps_s)
-    # eps_c_uk: float = 0.0026340921430255495
-
-    d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(
-        np.array([250, 200, 50]),
-        np.array([228 * 3.14, 64 * 3.14, 64 * 3.14]),
-        d_bot[0],
-        -0.0035,
-        eps_s,
-        armering,
-        betong_b35,
-        True,
-    )
-
-    alpha_d = alpha * d_bot[0]
-    f_bet, d_bet = integrate_cross_section(
-        eps_c, 0, height - alpha_d, height, betong_b35
-    )  # , var_height)
-
-    alpha, sum_trykk, sum_strekk_arm, z = section_integrator(
-        -0.0035,
-        eps_s,
-        tverrsnitt,
-        betong_b35,
-        armering,
-        0,
-    )
-    print(
-        f"alpha: {alpha}. Sum_trykk: {sum_trykk}. Sum_stress_arm: {sum_strekk_arm}. z: {z}"
-    )
-
-    # print("sum trykk:", f_bet - f_trykk.sum())
-    antall_vector = np.array([2, 2])
-    area_vector = spennarmering.get_area(antall_vector)
-    d_strekk_f, f_strekk_f, d_trykk_f, f_trykk_f = evaluate_reinforcement_from_strain(
-        np.array([250, 200]),
-        area_vector,
-        250,
-        betong_b35.get_eps_cu(),
-        0.002,
-        spennarmering,
-        betong_b35,
-        True,
-    )
-    print(f"f_strekk_f: {f_strekk_f}. f_trykk_f: {f_trykk_f}")

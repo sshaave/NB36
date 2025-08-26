@@ -37,10 +37,10 @@ def integrate_cross_section(
     for i in range(1, iterations):
         height_i = height_ec_zero + delta_h * i
         if var_height is None:
-            width_i = get_width(height_i, 0)
+            width_i = get_width2(height_i, 0)
         else:
-            width_i = get_width(height_i, var_height)
-            if width_i > 420:
+            width_i = get_width2(height_i, var_height)
+            if width_i > 4200: # TODO!
                 print("error med width i integrate cross section")
 
         area_i = width_i * delta_h
@@ -135,7 +135,16 @@ def section_integrator(
     a_pre_bot = tverrsnitt.get_a_pre_bot()
     a_pre_top = tverrsnitt.get_a_pre_top()
     
-    d_0 = max(d_bot[0], d_pre_bot[0])
+    if len(d_bot) == 0:
+        d_bot_0 = 0
+    else:
+        d_bot_0 = d_bot[0]
+    if len(d_pre_bot) == 0:
+        d_pre_bot_0 = 0
+    else:
+        d_pre_bot_0 = d_pre_bot[0]
+
+    d_0 = max(d_bot_0, d_pre_bot_0)
     delta_eps: float = (eps_uk - eps_ok) / height_max
     eps_s = eps_uk - delta_eps * (height - d_0)  # Geometrisk tøyning i sone 0
     # eps_s_d0: float = eps_uk + delta_eps * d_0
@@ -754,7 +763,7 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
 
 def get_width2(_a: float, _b: float) -> float:
     """Dummy, men fungerer for konstant bredde"""
-    return 200.0
+    return 1000.0
 
 
 def get_width(height_i: float, var: float) -> float:

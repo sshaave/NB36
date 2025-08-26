@@ -20,18 +20,18 @@ if __name__ == "__main__":
     karbonfiber: CarbonMaterial = CarbonFiber()
     
     # Definerer tverrsnitt
-    height = 350
+    height = 450
 
     # Definerer vanlig armering
-    as_area_bot = np.array([0])
-    as_area_top = np.array([(2 * 36) * 3.14])
-    d_bot = np.array([0])
-    d_top = np.array([40])
+    as_area_bot = np.array([5 * 64 * np.pi])  # 5 stk 16mm
+    as_area_top = np.array([5 * 64 * np.pi])
+    d_bot = np.array([400])
+    d_top = np.array([50])
 
     # Definerer spennarmering
-    spennarmering.set_fp(2)
+    spennarmering.set_fp(0)
     antall_vector_ok = np.array([0])
-    antall_vector_uk = np.array([4, 2])# np.array([4, 6, 4, 2])
+    antall_vector_uk = np.array([0])# np.array([4, 6, 4, 2])
     area_vector_ok = spennarmering.get_area(antall_vector_ok)
     area_vector_uk = spennarmering.get_area(antall_vector_uk)
     d_pre_bot = np.array([height - 40, height - 80]) #height - 80, height - 120, height - 160])
@@ -48,19 +48,26 @@ if __name__ == "__main__":
     q_montering: float = 5 # montering av karbonfiber
     
     # Lagrer tverrsnittobjektet
-    tverrsnitt: Tverrsnitt = Tverrsnitt(height, as_area_bot, as_area_top, d_bot, d_top,
-                             a_pre_bot=area_vector_uk, d_pre_bot=d_pre_bot,
-                             a_pre_top=area_vector_ok, d_pre_top=d_pre_top,
-                             a_carbon=carbon_vector, d_carbon=d_carbon,)
+    tverrsnitt: Tverrsnitt = Tverrsnitt(height, as_area_bot, as_area_top, d_bot, d_top) #,
+                             #a_pre_bot=area_vector_uk, d_pre_bot=d_pre_bot,
+                             #a_pre_top=area_vector_ok, d_pre_top=d_pre_top,
+                             #a_carbon=carbon_vector, d_carbon=d_carbon,)
     
     # Momentverdier langs bjelken i det karbonfiberen monteres
-    moment_vector = np.array([0, 1, 2, 3, 4, 8, 12, 16, 52, 16, 12, 8, 4, 3, 2, 1, 0])
-    moment_vector *= 1
+    # Moment for simply supported beam with UDL: M(x) = q * x * (L - x) / 2
+    L = 5.0  # length in meters
+    q = 17.216 # kN/m
+    x_points = np.linspace(0, L, 41)
+    moment_vector = q * x_points * (L - x_points) / 2
+    # Scale so max moment is exactly 53.8 if needed
+    moment_vector *= 53.8 / moment_vector.max()
+    print(moment_vector)
+
     # TODO! lag funksjon som henter moment fra linjelast
     
     # Svinntøyning og effektivt kryptall
-    eps_svinn: float = 0#.0001 # 0.01 % eksempelverdi
-    creep_eff: float = 0.  # eksempelverdi
+    eps_svinn: float = .09 # 0.01 % eksempelverdi
+    creep_eff: float = 0.#1.61  # eksempelverdi
     
     
     # ------ ULS --------
@@ -81,11 +88,13 @@ if __name__ == "__main__":
 
 
     # ------ SLS --------
-    bjelkelengde: float = 4 # i m
+    bjelkelengde: float = 5 # i m
     creep_eff: float = 0. # endrer fra 0
     karbonfiber.reset_0_state()
-    deflections = calc_deflection_with_curvatures(moment_vector, bjelkelengde, tverrsnitt,
+    curvatures, rotations, deflections, max_deflection = calc_deflection_with_curvatures(moment_vector, bjelkelengde, tverrsnitt,
                                                   betong_b45, rebar_material=armering,
                                                   tendon_material=spennarmering,
                                                   carbon_material=karbonfiber,
                                                   eps_cs=eps_svinn, creep_eff=creep_eff)
+    print(deflections)
+    print(max_deflection)

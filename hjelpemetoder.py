@@ -64,7 +64,7 @@ def calc_deflection_with_curvatures(moments: ndarray | float, lengde: float, tve
     
     # Definerer iterasjonsverdier
     tolerance, max_iter = 1e-7, 15
-    rotations, deflections = curvatures_to_deflections(curvatures, lengde, tolerance, max_iter)
+    rotations, deflections = curvatures_to_deflections(curvatures, lengde * 1000, tolerance, max_iter)
     max_deflection = np.max(np.abs(deflections))
     
     return curvatures, rotations, deflections, max_deflection
@@ -209,7 +209,7 @@ def find_eps_carbon(eps_ok: float, eps_uk: float, tverrsnitt: Tverrsnitt) -> flo
     a_carbon = tverrsnitt.get_a_carbon()
     d_carbon = tverrsnitt.get_d_carbon()
     
-    if a_carbon.size == 0 or d_carbon.size == 0:
+    if len(a_carbon) == 0 or len(d_carbon) == 0:
         return 0.0  # Ingen karbonfiber i tverrsnittet
     
     height_max = tverrsnitt.get_height_max()

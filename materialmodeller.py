@@ -321,8 +321,9 @@ class ConcreteMaterial(Material):
 
     def get_eps_cu1_c1(self):
         """Returns eps_c1 and eps_cu1 values for concrete type defined in Table 3.1 of NS-EN 1992-1-1"""
-        self.f_cm = self.f_ck + 8.0
-        self.eps_cy = min(0.7 * self.f_cm**0.31, 2.8) / 1000.0
+        self.f_cm = self.f_ck - 8.0
+        print("f_cm:", self.f_cm)
+        self.eps_cy = min(0.7 * (-self.f_cm)**0.31, 2.8) / 1000.0
         if self.f_ck < 55.0:
             self.eps_cu = -0.00350
         else:

@@ -224,7 +224,7 @@ def find_eps_carbon(eps_ok: float, eps_uk: float, tverrsnitt: Tverrsnitt) -> flo
     
     height_max = tverrsnitt.get_height_max()
     delta_eps: float = (eps_uk - eps_ok) / height_max
-    eps_carbon = np.zeros_like(d_carbon, dtype=float)
+    eps_carbon = np.zeros_like(a_carbon, dtype=float)
     for i in range(d_carbon.size):
         eps_carbon[i] = eps_uk - delta_eps * (height_max - d_carbon[i])
     

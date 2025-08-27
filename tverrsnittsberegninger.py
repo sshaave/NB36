@@ -586,7 +586,7 @@ def integration_iterator_ultimate(
     sum_as_top = np.sum(tverrsnitt.get_as_area_top())
 
     alpha, mom_b, z = 0, 0, 0
-    if sum_as_bot > sum_as_top or rebar_pre_material is not None:
+    if sum_as_bot > sum_as_top or rebar_pre_material is not None or carbon_material is not None:
         eps_s, alpha, mom_b, z = newton_optimize_eps_s(
             eps_c,
             tverrsnitt,
@@ -790,7 +790,7 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
 
 def get_width2(_a: float, _b: float) -> float:
     """Dummy, men fungerer for konstant bredde"""
-    return 1000.0
+    return 300.0
 
 
 def get_width(height_i: float, var: float) -> float:

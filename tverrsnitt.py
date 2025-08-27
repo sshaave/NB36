@@ -51,9 +51,22 @@ class Tverrsnitt():
         return self.d_top
     
     def get_d0_bot(self) -> float:
+        """ Gir tyngdepunktet til ytterste strekkmateriale"""
         if len(self.d_pre_bot) == 0:
-            return self.d_bot[0]
-        return self.d_pre_bot[0]
+            d_pre_bot = 0
+        else:
+            d_pre_bot = self.d_pre_bot[0]
+        
+        if len(self.d_bot) == 0:
+            d_bot_slakkarmering = 0
+        else:
+            d_bot_slakkarmering = self.d_bot[0]
+        
+        if len(self.d_carbon) == 0:
+            d_carbon = 0
+        else:
+            d_carbon = self.d_carbon[0]
+        return max(d_pre_bot, d_bot_slakkarmering, d_carbon)
     
     def get_d_top_avg(self) -> float:
         """UTEN KF. Returnerer tyngdepunktet av d for armeringen i OK (ikke bare ytterste laget)."""

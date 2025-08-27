@@ -34,7 +34,7 @@ def find_curvatures(moments: ndarray | float, tverrsnitt: Tverrsnitt, material: 
 
     for i, moment in enumerate(moments):
         m_i = moment * 1e3 + m_svinn
-        if abs(m_i) < 1e-4:
+        if abs(m_i) < 0.1:
             kurvaturer[i] = 0
             continue
         eps_ok, eps_uk, _, _ = find_equilibrium_strains(

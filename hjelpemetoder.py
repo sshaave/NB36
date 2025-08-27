@@ -12,7 +12,7 @@ def eps_c_and_eps_s_to_eps_ok_uk(
     eps_s: float,
     height: float,
     d0_strekk: float) -> Tuple[float, float]:
-    delta_eps: float = (eps_s - eps_c) / height
+    delta_eps: float = (eps_s - eps_c) / d0_strekk
     eps_uk = eps_s + delta_eps * (height - d0_strekk)
     
     return eps_c, eps_uk

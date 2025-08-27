@@ -83,9 +83,13 @@ class CarbonFiber(CarbonMaterial):
         self.gamma = 1.25
         self.e_s = 200000  # N/mm2
         self.f_yd = self.f_yk / self.gamma
-        self.eps_s_y = 1.35 / 100  # Lineært elastiske til brudd, ingen plastisitet
+        self.eps_s_y = 1.45 / 100  # Lineært elastiske til brudd, ingen plastisitet
         self.eps_s_u = self.eps_s_y
         self.eps_s_0_state = 0.0
+    
+    def get_eps_s_u(self) -> float:
+        """Maks tillatte geometriske tøyning"""
+        return self.eps_s_u - self.eps_s_0_state
 
     def get_eps_s_0_state(self) -> float:
         """Tøyning ved montering av fiberarmering"""

@@ -6,6 +6,7 @@ from typing import Tuple
 import numpy as np
 from numpy import array, ndarray
 from materialmodeller import (
+    CarbonFiber,
     CarbonMaterial,
     ConcreteMaterial,
     RebarMaterial,
@@ -401,6 +402,25 @@ def newton_optimize_eps_s(
     h = 1e-8
     step_size = 1.0
 
+    # Finner eps_s_u
+    if rebar_material is not None:
+        eps_s_rebar = rebar_material.get_eps_s_u()
+    else:
+        eps_s_rebar = 99.
+    if rebar_pre_material is not None:
+        assert isinstance(rebar_pre_material, Tendon)
+        eps_s_pre = rebar_pre_material.get_max_external_strain()
+    else:
+        eps_s_pre = 99.
+    if carbon_material is not None:
+        assert isinstance(carbon_material, CarbonFiber)
+        eps_s_cf = carbon_material.get_eps_s_u()
+    else:
+        eps_s_cf = 99.
+
+    # Velger minste bruddtøyning som blir dimensjonerende
+    eps_s_u = min(eps_s_rebar, eps_s_pre, eps_s_cf)
+
     while iterations <= max_iterations:
         iterations += 1
 
@@ -436,10 +456,10 @@ def newton_optimize_eps_s(
         eps_s -= step_size * f_value / f_prime
 
         # Sjekk om tøyningen er altfor stor
-        if eps_s > 0.02:
+        if eps_s > eps_s_u:
             if mom_s < mom_b:
                 return -1.0, -1.0, -1.0, -1.0
-            eps_s = 0.016
+            eps_s = eps_s_u - 0.004
             step_size *= 0.5  # Kan kanskje på sikt fjerne step_size.
 
         # Sjekk mot konvergenskriteriet
@@ -586,11 +606,24 @@ def integration_iterator_ultimate(
         print("Justerer eps_c")
         # Betongtøyningen kan ikke nå eps_cu. Setter en armeringstøyning og finner
         # betongtøyning som gir likevekt i tverrsnittet (eps_c < eps_cu).
-        if isinstance(rebar_pre_material, Tendon):
-            assert isinstance(rebar_pre_material, Tendon)
-            eps_s = rebar_pre_material.get_max_external_strain()
+        if rebar_material is not None:
+            eps_s_rebar = rebar_material.get_eps_s_u()
         else:
-            eps_s = 0.02
+            eps_s_rebar = 99.
+        if rebar_pre_material is not None:
+            assert isinstance(rebar_pre_material, Tendon)
+            eps_s_pre = rebar_pre_material.get_max_external_strain()
+        else:
+            eps_s_pre = 99.
+        if carbon_material is not None:
+            assert isinstance(carbon_material, CarbonFiber)
+            eps_s_cf = carbon_material.get_eps_s_u()
+        else:
+            eps_s_cf = 99.
+
+        # Velger minste bruddtøyning som blir dimensjonerende
+        eps_s = min(eps_s_rebar, eps_s_pre, eps_s_cf)
+
         initial_guess = -0.002  # -0.000297 #-0.00117
         eps_c, alpha, mom_b, z = newton_optimize_eps_c(
             eps_s,

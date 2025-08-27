@@ -75,11 +75,11 @@ if __name__ == "__main__":
     # ------ ULS --------
     # Finner likevekt i mest belastet snitt for å finne differansetøyning i bjelke og karbonfiber
     is_ck_not_cd: bool = True  # starter med bruks
-    eps_ok, eps_uk, _, _ = find_equilibrium_strains(moment_max_uls, betong_b45, tverrsnitt, armering,
+    eps_ok, eps_uk, _, _ = find_equilibrium_strains(moment_max_uls / 3, betong_b45, tverrsnitt, armering,
                                                     spennarmering, is_ck_not_cd=is_ck_not_cd)
     eps_carbon = find_eps_carbon(eps_ok, eps_uk, tverrsnitt)
     print(f"eps_carbon: {eps_carbon:.7f}")
-    karbonfiber.set_eps_s_0_state(eps_carbon)
+    #karbonfiber.set_eps_s_0_state(eps_carbon)
     
     # Regner ut momentkapasitet i ULS (differanse i tverrsnitt og karbonfiber hensyntatt)
     alpha_uls, mom_kapasitet, eps_s, eps_c, z = integration_iterator_ultimate(

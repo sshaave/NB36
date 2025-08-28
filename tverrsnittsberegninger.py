@@ -558,8 +558,8 @@ def integration_iterator_ultimate(
     return (alpha, mom_b, eps_s, eps_c, z)
 
 def innerstate_beam(eps_ok: float, eps_uk: float, tverrsnitt: Tverrsnitt, moment: float,
-                    material: ConcreteMaterial = None, rebar_material: RebarMaterial = None, rebar_pre_material: RebarMaterial = None,
-                    carbon_material: CarbonMaterial = None, is_ck_not_cd: bool = True) -> Tuple[float, float]:
+                    material: ConcreteMaterial, rebar_material: RebarMaterial, rebar_pre_material: RebarMaterial,
+                    carbon_material: CarbonMaterial, is_ck_not_cd: bool) -> Tuple[float, float]:
     if eps_ok == 0. and eps_uk == 0.:
         # Hvis ingen tøyninger, returner 0 krefter
         return 0.0, -moment
@@ -699,7 +699,7 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
 
 def get_width2(_a: float, _b: float) -> float:
     """Dummy, men fungerer for konstant bredde"""
-    return 300.0
+    return 1000.0
 
 def get_width(height_i: float, var: float) -> float:
     """Lager en funksjon som beskriver bredden for enhver høyde"""

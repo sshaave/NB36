@@ -22,14 +22,14 @@ if __name__ == "__main__":
     bjelkelengde: float = 5  # i m
     
     # Definerer tverrsnitt
-    height = 400
+    height = 450
 
     # Definerer vanlig armering
     armerings_kvalitet: str = "B500NC" # B400NC eller B500NC
     as_area_bot = np.array([5 * 64 * np.pi])  # 5 stk 16mm
-    as_area_top = np.array([2 * 64 * np.pi])
-    d_bot = np.array([400])
-    d_top = np.array([50])
+    as_area_top = np.array([5 * 64 * np.pi])
+    d_bot = np.array([389])
+    d_top = np.array([61])
 
     # Definerer spennarmering. Kablene har areal på 100mm2
     forspenningskraft: float = 0. # Forspenningskraft i kN
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     
     # Linjelaster
     q_uls: float = 20
-    q_sls: float = 10
+    q_sls: float = 6 + 11.25
     q_montering: float = 5 # ved montering av karbonfiber
     
     # Lagrer tverrsnittobjektet. Inkluder relevante arealer og d
@@ -55,9 +55,9 @@ if __name__ == "__main__":
                              a_carbon=a_carbon, d_carbon=d_carbon,)
     
     # Svinntøyning og effektivt kryptall
-    eps_svinn_promille: float = -0.09 # -0.01 % eksempelverdi
+    eps_svinn_promille: float = -0.0 # -0.01 % eksempelverdi
     eps_svinn: float = eps_svinn_promille / 1000
-    creep_eff: float = 0. #1.61  # eksempelverdi
+    creep_eff: float = 1.6 #1.61  # eksempelverdi
     
     ### INPUT FERDIG ###
     

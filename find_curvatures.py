@@ -6,8 +6,8 @@ from materialmodeller import CarbonMaterial, ConcreteMaterial, RebarMaterial
 
 
 def find_curvatures(moments: ndarray | float, tverrsnitt: Tverrsnitt, material: ConcreteMaterial,
-                    rebar_material: RebarMaterial = None, tendon_material: RebarMaterial = None,
-                    carbon_material: CarbonMaterial = None, eps_cs: float = 0, is_ck_not_cd: bool = True) -> ndarray:
+                    rebar_material: RebarMaterial, tendon_material: RebarMaterial,
+                    carbon_material: CarbonMaterial, eps_cs: float, is_ck_not_cd: bool) -> ndarray:
     """Metode for å finne kurvaturer langs bjelkens. Antall snitt bestemt av len(moments)"""
     from tverrsnittsberegninger import find_equilibrium_strains
     # Starter med å gjøre om en evt float til ndarray

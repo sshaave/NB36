@@ -19,10 +19,10 @@ if __name__ == "__main__":
     betong: ConcreteMaterial = ConcreteMaterial(f_ck, material_model="Parabola")  # kan velge mellom Parabola og Sargin (pass på)
     
     # Bjelkens lengde
-    beam_length: float = 5  # i m
+    bjelkelengde: float = 5  # i m
     
     # Definerer tverrsnitt
-    height = 450
+    height = 400
 
     # Definerer vanlig armering
     armerings_kvalitet: str = "B500NC" # B400NC eller B500NC
@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     # Definerer karbonfiber
     # I eksempelet her er det valgt 50 mm bredde, 1.4 mm tykkelse, 1 på hver side -> 2 stk
-    a_carbon: ndarray = np.array([50 * 1.4 * 1])
+    a_carbon: ndarray = np.array([50 * 1.4 * 0])
     d_carbon: ndarray = np.array([height - 40])
     
     # Linjelaster
@@ -63,15 +63,16 @@ if __name__ == "__main__":
     
     
     # Momentverdier langs bjelken i det karbonfiberen monteres
-    moment_vector_uls: ndarray = get_moments_simply_supported_beam(q_uls, beam_length, num_points=15)
-    moment_vector_sls: ndarray = get_moments_simply_supported_beam(q_sls, beam_length, num_points=15)
-    moment_vector_montering: ndarray = get_moments_simply_supported_beam(q_montering, beam_length, num_points=15)
+    moment_vector_uls: ndarray = get_moments_simply_supported_beam(q_uls, bjelkelengde, num_points=15)
+    moment_vector_sls: ndarray = get_moments_simply_supported_beam(q_sls, bjelkelengde, num_points=15)
+    moment_vector_montering: ndarray = get_moments_simply_supported_beam(q_montering, bjelkelengde, num_points=15)
     
     moment_max_uls: float = moment_vector_uls.max()
     m_max_montering: float = moment_vector_montering.max()
 
     # Lager materialer hvis det er definert arealer og avstander er definert
     ##########################################
+    betong.set_creep(creep_eff)
     if (sum(d_bot) > 0 and sum(as_area_bot) > 0) or (sum(d_top) > 0 and sum(as_area_top) > 0):
         if armerings_kvalitet == "B500NC":
             armering: RebarMaterial = RebarB500NC()
@@ -96,30 +97,30 @@ if __name__ == "__main__":
         
     # ------ ULS --------
     # Finner likevekt i mest belastet snitt for å finne differansetøyning i bjelke og karbonfiber
-    is_ck_not_cd: bool = True  # starter med bruks
-    eps_ok, eps_uk, _, _ = find_equilibrium_strains(1000 * m_max_montering, betong, tverrsnitt, armering,
-                                                    spennarmering, is_ck_not_cd=is_ck_not_cd)
-    eps_carbon = find_eps_carbon(eps_ok, eps_uk, tverrsnitt)
-    print(f"eps_carbon: {eps_carbon:.7f}")
-    karbonfiber.set_eps_s_0_state(eps_carbon)
+    if karbonfiber is not None:
+        is_ck_not_cd: bool = True  # starter med bruks
+        eps_ok, eps_uk, _, _ = find_equilibrium_strains(1000 * m_max_montering, betong, tverrsnitt, armering,
+                                                        spennarmering, is_ck_not_cd=is_ck_not_cd)
+    
+        eps_carbon = find_eps_carbon(eps_ok, eps_uk, tverrsnitt)
+        print(f"eps_carbon: {eps_carbon:.7f}")
+        karbonfiber.set_eps_s_0_state(eps_carbon)
     
     # Regner ut momentkapasitet i ULS (differanse i tverrsnitt og karbonfiber hensyntatt)
     alpha_uls, mom_kapasitet, eps_s, eps_c, z = integration_iterator_ultimate(
         tverrsnitt, betong, rebar_material=armering, rebar_pre_material=spennarmering,
-        carbon_material=karbonfiber, creep_eff=creep_eff)
+        carbon_material=karbonfiber)
     
     print(f"alpha: {alpha_uls:.3f}, mom: {mom_kapasitet/1e6:.1f} kNm, eps_c: {eps_c:.6f}, eps_s: {eps_s:.6f}")
 
 
     # ------ SLS --------
     bjelkelengde: float = 5 # i m
-    creep_eff: float = 0. # endrer fra 0
-    karbonfiber.reset_0_state()
+
+    if karbonfiber is not None:
+        karbonfiber.reset_0_state()
     curvatures, rotations, deflections, max_deflection = calc_deflection_with_curvatures(moment_vector_sls, bjelkelengde, tverrsnitt,
-                                                  betong, rebar_material=armering,
-                                                  tendon_material=spennarmering,
-                                                  carbon_material=karbonfiber,
-                                                  eps_cs=eps_svinn, creep_eff=creep_eff)
+        betong, rebar_material=armering, tendon_material=spennarmering, carbon_material=karbonfiber, eps_cs=eps_svinn)
     #print(np.round(deflections, 2))
     print(np.round(max_deflection, 2))
     

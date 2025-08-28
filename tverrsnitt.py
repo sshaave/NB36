@@ -29,7 +29,8 @@ class Tverrsnitt():
         self.a_carbon = a_carbon
         self.d_carbon = d_carbon
         
-    def get_height(self) -> float:
+    def get_height(self) -> float | ndarray:
+        """Gir tilbake høyde (kan være vektor)"""
         return self.height
 
     def get_height_max(self) -> float:
@@ -49,25 +50,25 @@ class Tverrsnitt():
 
     def get_d_top(self) -> ndarray:
         return self.d_top
-    
+
     def get_d0_bot(self) -> float:
         """ Gir tyngdepunktet til ytterste strekkmateriale"""
         if len(self.d_pre_bot) == 0:
             d_pre_bot = 0
         else:
             d_pre_bot = self.d_pre_bot[0]
-        
+
         if len(self.d_bot) == 0:
             d_bot_slakkarmering = 0
         else:
             d_bot_slakkarmering = self.d_bot[0]
-        
+
         if len(self.d_carbon) == 0:
             d_carbon = 0
         else:
             d_carbon = self.d_carbon[0]
         return max(d_pre_bot, d_bot_slakkarmering, d_carbon)
-    
+
     def get_d_top_avg(self) -> float:
         """UTEN KF. Returnerer tyngdepunktet av d for armeringen i OK (ikke bare ytterste laget)."""
         d_area = 0.0
@@ -82,7 +83,7 @@ class Tverrsnitt():
             return 0.0
         d_avg_top = d_area / sum_area
         return d_avg_top
-    
+
     def get_d_bot_avg(self) -> float:
         """UTEN KF. Returnerer tyngdepunktet av d for armeringen i UK (ikke bare ytterste laget)."""
         d_area = 0.0
@@ -97,7 +98,7 @@ class Tverrsnitt():
             return 0.0
         d_avg_bot = d_area / sum_area
         return d_avg_bot
-    
+
     def get_d_bot_avg_cf(self) -> float:
         """Returnerer tyngdepunktet av d for armeringen i UK (ikke bare ytterste laget)."""
         d_area = 0.0
@@ -118,7 +119,7 @@ class Tverrsnitt():
 
     def get_a_bot_sum(self) -> float:
         return np.sum(self.as_area_bot) + np.sum(self.a_pre_bot)
-    
+
     def get_a_top_sum(self) -> float:
         return np.sum(self.as_area_top) + np.sum(self.a_pre_top)
 
@@ -139,7 +140,7 @@ class Tverrsnitt():
 
     def get_d_carbon(self) -> ndarray:
         return self.d_carbon
-    
+
     def __str__(self):
         return (
             f"Tverrsnitt:\n"
@@ -157,15 +158,3 @@ class Tverrsnitt():
             f"  Sum armering i OK: {self.get_a_top_sum():.1f}\n"
             f"  Sum armering i uK: {self.get_a_bot_sum():.1f}\n"
         )
-  
-if __name__ == "__main__":
-    as_area_bot = np.array([314])
-    as_area_top = np.array([(2 * 36) * 3.14])
-    d_bot = np.array([360])
-    d_top = np.array([40])
-    a_pre_top = np.array([200])
-    d_pre_top = np.array([200])
-    
-    tverrsnitt: Tverrsnitt = Tverrsnitt(400, as_area_bot, as_area_top, d_bot, d_top, a_pre_top=a_pre_top, d_pre_top=d_pre_top)
-    print(tverrsnitt)
-        

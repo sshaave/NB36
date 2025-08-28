@@ -1,7 +1,6 @@
 from typing import Tuple
-import numpy as np
 from numpy import ndarray
-from tverrsnittsberegninger import section_integrator, find_equilibrium_strains
+from tverrsnittsberegninger import section_integrator
 from hjelpemetoder import eps_ok_uk_to_c_and_s
 from materialmodeller import (
     CarbonMaterial,
@@ -18,7 +17,6 @@ def nr_find_strain_profile(
     rebar_material: RebarMaterial,
     tendon_material: RebarMaterial,
     carbon_material: CarbonMaterial,
-    creep: float,
     f_ck_or_cd: int) -> Tuple[float, float, float, float, float, float, float]:
     """Returnerer eps_ok, eps_uk, alpha, mom_strekk, z, f_strekk, f_trykk"""
 
@@ -29,7 +27,7 @@ def nr_find_strain_profile(
     bending: bool = True
     find_uk_vec: list[bool] = [True, False]
     
-    # Bestemmer om det skal antas strekk i OK eller UL. 
+    # Bestemmer om det skal antas strekk i OK eller UK
     strekk_uk: bool = True
     
     # Setter maks tøyninger for bøyeformen
@@ -57,8 +55,7 @@ def nr_find_strain_profile(
                 d_bot if find_uk else d_top, d_top if find_uk else d_bot
             )
             alpha, f_trykk, f_strekk, z = section_integrator(eps_ok, eps_s, tverrsnitt, concrete_material,
-                                                             rebar_material, creep, tendon_material,
-                                                             carbon_material, f_ck_or_cd)
+                rebar_material, tendon_material, carbon_material, f_ck_or_cd)
             
             f = max(f_strekk / (-f_trykk), 1e-6) - 1.0
             
@@ -66,7 +63,7 @@ def nr_find_strain_profile(
                 mom_strekk = f_strekk * z
                 return eps_ok, eps_uk, alpha, mom_strekk, z, f_strekk, f_trykk
             
-            eps_uk_d, eps_ok_d = eps_uk + delta_uk, eps_ok + delta_ok
+            eps_uk_d, eps_ok_d = eps_uk + delta_uk, eps_ok + delta_ok # TODO! Har jeg glemt noe her?
 
         
     eps_ok = 0.0

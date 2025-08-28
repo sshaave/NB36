@@ -7,8 +7,7 @@ from materialmodeller import CarbonMaterial, ConcreteMaterial, RebarMaterial
 
 def find_curvatures(moments: ndarray | float, tverrsnitt: Tverrsnitt, material: ConcreteMaterial,
                     rebar_material: RebarMaterial = None, tendon_material: RebarMaterial = None,
-                    carbon_material: CarbonMaterial = None, eps_cs: float = 0, creep_eff: float = 0,
-                    is_ck_not_cd: bool = True) -> ndarray:
+                    carbon_material: CarbonMaterial = None, eps_cs: float = 0, is_ck_not_cd: bool = True) -> ndarray:
     """Metode for å finne kurvaturer langs bjelkens. Antall snitt bestemt av len(moments)"""
     from tverrsnittsberegninger import find_equilibrium_strains
     # Starter med å gjøre om en evt float til ndarray
@@ -37,9 +36,8 @@ def find_curvatures(moments: ndarray | float, tverrsnitt: Tverrsnitt, material: 
         if abs(m_i) < 0.1:
             kurvaturer[i] = 0
             continue
-        eps_ok, eps_uk, _, _ = find_equilibrium_strains(
-            m_i, material, tverrsnitt, rebar_material, tendon_material,
-            carbon_material, creep_eff, eps_ok, eps_uk, is_ck_not_cd
+        eps_ok, eps_uk, _, _ = find_equilibrium_strains(m_i, material, tverrsnitt,
+            rebar_material, tendon_material, carbon_material, eps_ok, eps_uk, is_ck_not_cd
         )
         
         # Sjekker om konvergens ble funnet
@@ -48,9 +46,8 @@ def find_curvatures(moments: ndarray | float, tverrsnitt: Tverrsnitt, material: 
             print(f"Fant ikke konvergens i snitt {i} med moment {moment} kNm, ")
             tendon_material.set_fp(0)
             eps_ok, eps_uk = -0.0005, 0.0005
-            eps_ok, eps_uk, _, _ = find_equilibrium_strains(
-                m_i, material, tverrsnitt, rebar_material, tendon_material,
-                carbon_material, creep_eff, eps_ok, eps_uk, is_ck_not_cd
+            eps_ok, eps_uk, _, _ = find_equilibrium_strains(m_i, material, tverrsnitt,
+                rebar_material, tendon_material, carbon_material, eps_ok, eps_uk, is_ck_not_cd
             )
             tendon_material.set_fp(forspenning)
             print(f"forspenning: {tendon_material.get_fp()} kN")

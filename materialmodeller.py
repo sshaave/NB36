@@ -72,6 +72,10 @@ class CarbonMaterial(Material):
     def get_stress(self, strain: float, is_ck_not_cd: bool = True) -> float:
         """Gir spenning for en gitt tøyning"""
 
+    @abstractmethod
+    def set_eps_s_0_state(self, eps_s_0_state: float) -> None:
+        """Sett tøyning ved montasje"""
+
 
 
 class CarbonFiber(CarbonMaterial):
@@ -294,20 +298,23 @@ class ConcreteMaterial(Material):
         self.f_ctm, self.e_cm = self.fetch_material_parameters()
         self.get_eps_cu_c_n()
         self.gamma = 1.5
+        self.creep_eff: float = 0.0  # Effektivt kryptall
 
-    def get_stress(self, strain: float, is_ck_not_cd: bool = True, creep_eff: float = 0) -> float:
+    def get_stress(self, strain: float, is_ck_not_cd: bool = True) -> float:
         # Sargin er ikke klar for ULS, men det gjør ingenting for bjelker
-        strain_eff = strain if strain > 0 else strain * (1 + creep_eff)
+        strain_eff = strain if strain > 0 else strain * (1 + self.creep_eff)
+        eps_cy = self.eps_cy * (1 + self.creep_eff)
+        eps_cu = self.eps_cu * (1 + self.creep_eff)
         if self.material_model == "Sargin":
-            return sargin_mat_model(strain_eff, self.eps_cy, self.eps_cu, self.e_cm, self.f_cm)
+            return sargin_mat_model(strain_eff, eps_cy, eps_cu, self.e_cm, self.f_cm)
         f_ck_cd = self.f_ck if is_ck_not_cd else self.f_cd
-        return parabel_rektangel(strain_eff, self.eps_cy, self.n, self.eps_cu, f_ck_cd)
+        return parabel_rektangel(strain_eff, eps_cy, self.n, eps_cu, f_ck_cd)
 
     def change_material_model(self, material_model: str):
         """Endrer materialmodell for betong"""
         self.material_model = material_model
         self.get_eps_cu_c_n()
-    
+
     def get_eps_cu(self) -> float:
         """Bruddtøyning (minus i trykk)"""
         return self.eps_cu
@@ -386,6 +393,20 @@ class ConcreteMaterial(Material):
 
     def get_eps_s_y(self) -> float:
         return 0
+    
+    def set_creep(self, creep_eff: float) -> None:
+        """Setter effektivt kryptall"""
+        if creep_eff < 0:
+            raise ValueError("Creep_eff cannot be negative")
+        self.creep_eff = creep_eff
+
+    def get_creep(self) -> float:
+        """Hent effektivt kryptall"""
+        return self.creep_eff
+    
+    def get_eps_cu_eff(self) -> float:
+        """Hent effektiv bruddtøyning"""
+        return self.eps_cu * (1 + self.creep_eff)
 
 
 if __name__ == "__main__":

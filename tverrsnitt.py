@@ -6,18 +6,20 @@ class Tverrsnitt():
     def __init__(
         self,
         height: float | ndarray,
-        as_area_bot: ndarray = [],
-        as_area_top: ndarray = [],
-        d_bot: ndarray = [],
-        d_top: ndarray = [],
-        a_pre_bot: ndarray = [],
-        a_pre_top: ndarray = [],
-        d_pre_bot: ndarray = [],
-        d_pre_top: ndarray = [],
-        a_carbon: ndarray = [],
-        d_carbon: ndarray = [],
+        width,
+        as_area_bot: ndarray = np.array([]),
+        as_area_top: ndarray = np.array([]),
+        d_bot: ndarray = np.array([]),
+        d_top: ndarray = np.array([]),
+        a_pre_bot: ndarray = np.array([]),
+        a_pre_top: ndarray = np.array([]),
+        d_pre_bot: ndarray = np.array([]),
+        d_pre_top: ndarray = np.array([]),
+        a_carbon: ndarray = np.array([]),
+        d_carbon: ndarray = np.array([])
     ) -> None:
         self.height = height
+        self.width = width
         self.as_area_bot = as_area_bot
         self.as_area_top = as_area_top
         self.d_bot = d_bot
@@ -38,6 +40,12 @@ class Tverrsnitt():
         if isinstance(self.height, ndarray):
             return self.height.max()
         return self.height
+    
+    def get_width(self, height: float) -> float:
+        """ Gir tilbake bredde for en høyde, brukerdefinert funksjon"""
+        if callable(self.width):
+            return self.width(height)
+        return self.width
     
     def get_as_area_bot(self) -> ndarray:
         return self.as_area_bot

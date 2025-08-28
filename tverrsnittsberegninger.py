@@ -22,8 +22,8 @@ def integrate_cross_section(
     height_ec_zero: float,
     height_total: float,
     material: ConcreteMaterial,
+    tverrsnitt: Tverrsnitt,
     is_ck_not_cd: bool,
-    var_height: float = None,
 ) -> Tuple[float, float]:
     """Integrere opp betongarealet"""
     # d_alpha_d er avstanden fra trykkresultanten til stedet nøytralaksen
@@ -36,13 +36,7 @@ def integrate_cross_section(
     delta_h = height_compression / iterations
     for i in range(1, iterations):
         height_i = height_ec_zero + delta_h * i
-        if var_height is None:
-            width_i = get_width2(height_i, 0)
-        else:
-            width_i = get_width2(height_i, var_height)
-            if width_i > 4200: # TODO!
-                print("error med width i integrate cross section")
-
+        width_i = tverrsnitt.get_width(height_i)
         area_i = width_i * delta_h
 
         eps_i = eps_uk + delta_e * (i - 0.5)
@@ -74,10 +68,10 @@ def evaluate_reinforcement_from_strain(
     is_ck_not_cd: bool = True,
 ) -> Tuple[ndarray, ndarray, ndarray, ndarray]:
     """Krefter i armering basert på tøyninger. Behandler alle som punkter og ikke areal"""
-    d_vec_strekk: ndarray = array([])
-    f_vec_strekk: ndarray = array([])
-    d_vec_trykk: ndarray = array([])
-    f_vec_trykk: ndarray = array([])
+    d_vec_strekk: ndarray = np.array([])
+    f_vec_strekk: ndarray = np.array([])
+    d_vec_trykk: ndarray = np.array([])
+    f_vec_trykk: ndarray = np.array([])
 
     for d, as_ in zip(d_vector, a_vector):
         toyning = eps_ok + (eps_uk - eps_ok) / height * d # Geometrisk tøyning
@@ -125,11 +119,11 @@ def section_integrator(
     as_bot, as_top = tverrsnitt.get_as_area_bot(), tverrsnitt.get_as_area_top()
     a_pre_bot, a_pre_top = tverrsnitt.get_a_pre_bot(), tverrsnitt.get_a_pre_top()
     
-    if len(d_bot) == 0:
+    if d_bot is None or len(d_bot) == 0:
         d_bot_0 = 0
     else:
         d_bot_0 = d_bot[0]
-    if len(d_pre_bot) == 0:
+    if d_pre_bot is None or len(d_pre_bot) == 0:
         d_pre_bot_0 = 0
     else:
         d_pre_bot_0 = d_pre_bot[0]
@@ -261,7 +255,7 @@ def section_integrator(
 
     height_uk = height - alpha_d
     f_bet, d_alpha_d = integrate_cross_section(
-        eps_ok, eps_c_uk, height_uk, height, material, is_ck_not_cd) #, var_height=1180)  # , var_height)
+        eps_ok, eps_c_uk, height_uk, height, material, tverrsnitt, is_ck_not_cd)
     d_bet = alpha_d - d_alpha_d
 
     # Regner ut bidraget fra armering. Trykkmoment regnes om overkant
@@ -695,22 +689,4 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
     print("Max iterations reached without convergence")
         
     return 0, 0, 0, 0
-
-
-def get_width2(_a: float, _b: float) -> float:
-    """Dummy, men fungerer for konstant bredde"""
-    return 1000.0
-
-def get_width(height_i: float, var: float) -> float:
-    """Lager en funksjon som beskriver bredden for enhver høyde"""
-    if height_i < 80:
-        return 320
-    if height_i < 220:
-        return 320 - 220 * (height_i - 80) / 140
-    if height_i < 220 + var:
-        return 100
-    if height_i < 220 + var + 50:
-        rel_height = height_i - (220 + var)
-        return 100 + 320 * rel_height / 50
-    return 420
 

@@ -5,11 +5,12 @@ from tverrsnitt import Tverrsnitt
 from materialmodeller import CarbonMaterial, ConcreteMaterial, RebarMaterial
 
 
-def find_curvatures(moments: ndarray | float, tverrsnitt: Tverrsnitt, material: ConcreteMaterial,
+def find_curvatures(moments: ndarray | float, m_montasje: ndarray | float, tverrsnitt: Tverrsnitt, material: ConcreteMaterial,
                     rebar_material: RebarMaterial, tendon_material: RebarMaterial,
                     carbon_material: CarbonMaterial, eps_cs: float, is_ck_not_cd: bool) -> ndarray:
     """Metode for å finne kurvaturer langs bjelkens. Antall snitt bestemt av len(moments)"""
     from tverrsnittsberegninger import find_equilibrium_strains
+    from hjelpemetoder import find_eps_carbon
     # Starter med å gjøre om en evt float til ndarray
     if isinstance(moments, (float, int)):
         moments = np.array([moments])
@@ -25,17 +26,27 @@ def find_curvatures(moments: ndarray | float, tverrsnitt: Tverrsnitt, material: 
     sum_ok_armering: float = tverrsnitt.get_a_top_sum()
     sum_uk_armering: float = tverrsnitt.get_a_bot_sum()
     forspenning: float = tendon_material.get_fp() if tendon_material is not None else 0
-    print(f"Forspenning i tendon: {forspenning} kN")
+    print(f"Forspenning pr spennkabel: {forspenning} kN")
 
     # Enhet: N/mm2 * mm3 / 1000 = Nmm/1000 = Nm
     m_svinn: float = rebar_material.get_e_s_rebar() * eps_cs * \
         (z_ok * sum_ok_armering - z_uk * sum_uk_armering) / 1000
 
-    for i, moment in enumerate(moments):
+    for i, (moment, m_i_montasje) in enumerate(zip(moments, m_montasje)):
         m_i = moment * 1e3 + m_svinn
+        m_i_m = m_i_montasje * 1e3 + m_svinn
         if abs(m_i) < 0.1:
             kurvaturer[i] = 0
             continue
+        if carbon_material is not None:
+            # Gjør en kjøring pr iterasjon for å finne riktig initielltøyning i karbonfiber
+            carbon_material.reset_0_state()
+            eps_ok_0, eps_uk_0, _, _ = find_equilibrium_strains(m_i_m, material, tverrsnitt,
+                rebar_material, tendon_material, carbon_material, eps_ok, eps_uk, is_ck_not_cd
+            )
+            eps_carbon = find_eps_carbon(eps_ok_0, eps_uk_0, tverrsnitt)
+            carbon_material.set_eps_s_0_state(eps_carbon)
+        
         eps_ok, eps_uk, _, _ = find_equilibrium_strains(m_i, material, tverrsnitt,
             rebar_material, tendon_material, carbon_material, eps_ok, eps_uk, is_ck_not_cd
         )

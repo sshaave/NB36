@@ -13,6 +13,20 @@ from materialmodeller import (
 
 from tverrsnittsberegninger import Tverrsnitt, find_equilibrium_strains, integration_iterator_ultimate
 
+def width_function(height_i: float) -> float:
+    """Lager en funksjon som beskriver bredden for enhver høyde"""
+    var = 500
+    if height_i < 80:
+        return 320
+    if height_i < 220:
+        return 320 - 220 * (height_i - 80) / 140
+    if height_i < 220 + var:
+        return 100
+    if height_i < 220 + var + 50:
+        rel_height = height_i - (220 + var)
+        return 100 + 320 * rel_height / 50
+    return 420
+
 if __name__ == "__main__":
     # Definerer materialer
     f_ck: float = 45  # Betongkvalitet
@@ -21,38 +35,34 @@ if __name__ == "__main__":
     # Bjelkens lengde
     bjelkelengde: float = 5  # i m
     
-    # Definerer tverrsnitt
+    # Definerer tverrsnitt. Bredden kan være et tall eller en funksjon
     height = 450
+    #width = 300
+    width = width_function
 
     # Definerer vanlig armering
     armerings_kvalitet: str = "B500NC" # B400NC eller B500NC
-    as_area_bot = np.array([5 * 64 * np.pi])  # 5 stk 16mm
-    as_area_top = np.array([5 * 64 * np.pi])
-    d_bot = np.array([389])
-    d_top = np.array([61])
+    as_area_bot = np.array([4 * 64 * np.pi, 100])  # 5 stk 16mm
+    as_area_top = np.array([4 * 64 * np.pi, 50])
+    d_bot = np.array([389, 360])
+    d_top = np.array([61, 88])
 
     # Definerer spennarmering. Kablene har areal på 100mm2
-    forspenningskraft: float = 0. # Forspenningskraft i kN
+    forspenningskraft: float = 1. # Forspenningskraft i kN
     antall_vektor_ok = np.array([0])
-    antall_vektor_uk = np.array([0])# np.array([4, 6, 4, 2])
-    d_pre_bot = np.array([height - 40, height - 80]) #height - 80, height - 120, height - 160])
+    antall_vektor_uk = np.array([2])# np.array([4, 6, 4, 2])
+    d_pre_bot = np.array([410]) #height - 80, height - 120, height - 160])
     d_pre_top = np.array([40])
 
     # Definerer karbonfiber
     # I eksempelet her er det valgt 50 mm bredde, 1.4 mm tykkelse, 1 på hver side -> 2 stk
-    a_carbon: ndarray = np.array([50 * 1.4 * 0])
+    a_carbon: ndarray = np.array([50 * 1.4 * 2])
     d_carbon: ndarray = np.array([height - 40])
     
-    # Linjelaster
+    # Linjelaster - husk å ta hensyn til egenvekt av bjelke
     q_uls: float = 20
     q_sls: float = 6 + 11.25
-    q_montering: float = 5 # ved montering av karbonfiber
-    
-    # Lagrer tverrsnittobjektet. Inkluder relevante arealer og d
-    tverrsnitt: Tverrsnitt = Tverrsnitt(height, as_area_bot, as_area_top, d_bot, d_top,
-                             #a_pre_bot=area_vector_uk, d_pre_bot=d_pre_bot,
-                             #a_pre_top=area_vector_ok, d_pre_top=d_pre_top,
-                             a_carbon=a_carbon, d_carbon=d_carbon,)
+    q_montering: float = 1 # ved montering av karbonfiber
     
     # Svinntøyning og effektivt kryptall
     eps_svinn_promille: float = -0.0 # -0.01 % eksempelverdi
@@ -80,6 +90,8 @@ if __name__ == "__main__":
             armering: RebarMaterial = RebarB400NC() # armering: RebarMaterial = RebarB500NC()
     else: 
         armering = None
+        as_area_bot, as_area_top = np.array([]), np.array([])
+        d_bot, d_top = np.array([]), np.array([])
         
     if (sum(d_pre_bot) > 0 and sum(antall_vektor_uk) > 0) or (sum(d_pre_top) > 0 and sum(antall_vektor_ok) > 0):
         spennarmering: RebarMaterial = Tendon()
@@ -88,14 +100,22 @@ if __name__ == "__main__":
         area_vector_uk = spennarmering.get_area(antall_vektor_uk)
     else:
         spennarmering = None
+        area_vector_ok, area_vector_uk = np.array([]), np.array([])
+        d_pre_bot, d_pre_top = np.array([]), np.array([])
     
     if sum(a_carbon) > 0 and sum(d_carbon) > 0:
         karbonfiber: CarbonMaterial = CarbonFiber()
     else:
         karbonfiber = None
+        a_carbon, d_carbon = np.array([]), np.array([])
     ##########################################
+    # Lagrer tverrsnittobjektet
+    tverrsnitt: Tverrsnitt = Tverrsnitt(height, width, as_area_bot, as_area_top, d_bot, d_top,
+                             a_pre_bot=area_vector_uk, d_pre_bot=d_pre_bot,
+                             a_pre_top=area_vector_ok, d_pre_top=d_pre_top,
+                             a_carbon=a_carbon, d_carbon=d_carbon)
         
-    # ------ ULS --------
+    # -------- ULS ---------
     # Finner likevekt i mest belastet snitt for å finne differansetøyning i bjelke og karbonfiber
     if karbonfiber is not None:
         is_ck_not_cd: bool = True  # starter med bruks
@@ -114,13 +134,9 @@ if __name__ == "__main__":
     print(f"alpha: {alpha_uls:.3f}, mom: {mom_kapasitet/1e6:.1f} kNm, eps_c: {eps_c:.6f}, eps_s: {eps_s:.6f}")
 
 
-    # ------ SLS --------
-    bjelkelengde: float = 5 # i m
-
-    if karbonfiber is not None:
-        karbonfiber.reset_0_state()
-    curvatures, rotations, deflections, max_deflection = calc_deflection_with_curvatures(moment_vector_sls, bjelkelengde, tverrsnitt,
-        betong, rebar_material=armering, tendon_material=spennarmering, carbon_material=karbonfiber, eps_cs=eps_svinn)
-    #print(np.round(deflections, 2))
-    print(np.round(max_deflection, 2))
+    # ------ SLS ------------
+    curvatures, rotations, deflections, max_deflection = calc_deflection_with_curvatures(
+        moment_vector_sls, moment_vector_montering, bjelkelengde, tverrsnitt, betong,
+        rebar_material=armering, tendon_material=spennarmering, carbon_material=karbonfiber, eps_cs=eps_svinn)
+    print(f"Største deformasjon: {np.round(max_deflection, 2)} mm")
     

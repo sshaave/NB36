@@ -64,12 +64,12 @@ def eps_ok_uk_to_c_and_s(
     return min(eps_ok, eps_uk), 0.0, alpha
 
 
-def calc_deflection_with_curvatures(moments: ndarray | float, lengde: float, tverrsnitt: Tverrsnitt,
+def calc_deflection_with_curvatures(moments: ndarray | float, m_montasje: ndarray | float, lengde: float, tverrsnitt: Tverrsnitt,
     material: ConcreteMaterial, rebar_material: RebarMaterial = None, tendon_material: RebarMaterial = None,
     carbon_material: CarbonMaterial = None, eps_cs: float = 0,
     is_ck_not_cd: bool = True) -> Tuple[ndarray, ndarray, ndarray, float]:
     """Metode for å regne ut forskyvning med krumninger."""
-    curvatures = find_curvatures(moments, tverrsnitt, material, rebar_material, tendon_material,
+    curvatures = find_curvatures(moments, m_montasje, tverrsnitt, material, rebar_material, tendon_material,
                                  carbon_material, eps_cs, is_ck_not_cd)
 
     # Definerer iterasjonsverdier

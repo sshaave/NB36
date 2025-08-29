@@ -686,7 +686,8 @@ def find_equilibrium_strains(moment: float, material: ConcreteMaterial,
         
         #if i == 90:
             #print("Over 90 iterasjoner")
-    print("Max iterations reached without convergence")
+    print(f"Konvergens ikke oppnådd etter {max_iterations} iterasjoner.")
+    print(f"Ubalanse i indre krefter: {f_internal:.4f} N, momenter: {m_internal:.4f} Nm. Likevektskrav: <= {tolerance}")
         
     return 0, 0, 0, 0
 

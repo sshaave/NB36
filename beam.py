@@ -13,17 +13,19 @@ from materialmodeller import (
 
 from tverrsnittsberegninger import Tverrsnitt, find_equilibrium_strains, integration_iterator_ultimate
 
-def width_function(height_i: float) -> float:
-    """Lager en funksjon som beskriver bredden for enhver høyde"""
-    var = 500
+def width_function(height_i: float, height: float = 0) -> float:
+    """Lager en funksjon som beskriver bredden for enhver høyde
+        height_i: betraktet høyde hvor bredde skal leses av
+        height: total høyde på tverrsnittet for gitt snitt
+    """
     if height_i < 80:
         return 320
     if height_i < 220:
         return 320 - 220 * (height_i - 80) / 140
-    if height_i < 220 + var:
+    if height_i < 220 + height:
         return 100
-    if height_i < 220 + var + 50:
-        rel_height = height_i - (220 + var)
+    if height_i < 220 + height + 50:
+        rel_height = height_i - (220 + height) # Må fikses
         return 100 + 320 * rel_height / 50
     return 420
 
@@ -35,20 +37,23 @@ if __name__ == "__main__":
     # Bjelkens lengde
     bjelkelengde: float = 5  # i m
     
-    # Definerer tverrsnitt. Bredden kan være et tall eller en funksjon
-    height = 450
-    #width = 300
-    width = width_function
+    # Definerer tverrsnitt. Høyde (total høyde) er en vektor og bredde kan være et tall eller en funksjon.
+    # For et I-tverrsnitt må totalhøyde være vektor og bredde en funksjon av høyden
+    # Høyden må ha like mange datapunkt som momentvektoren
+    height = 350
+    width = width_function # width = 300 er også et alternativ
+    antall_punkter_standard: int = 15 # benyttes hvis høyde er et tall. Kan endres på av bruker
+    antall_punkter: int = len(height) if isinstance(height, (list, ndarray)) else antall_punkter_standard
 
     # Definerer vanlig armering
     armerings_kvalitet: str = "B500NC" # B400NC eller B500NC
-    as_area_bot = np.array([4 * 64 * np.pi, 100])  # 5 stk 16mm
-    as_area_top = np.array([4 * 64 * np.pi, 50])
+    as_area_bot = np.array([2 * 64 * np.pi, 100])  # 5 stk 16mm
+    as_area_top = np.array([2 * 64 * np.pi, 50])
     d_bot = np.array([389, 360])
     d_top = np.array([61, 88])
 
     # Definerer spennarmering. Kablene har areal på 100mm2
-    forspenningskraft: float = 1. # Forspenningskraft i kN
+    forspenningskraft: float = 0. # Forspenningskraft i kN
     antall_vektor_ok = np.array([0])
     antall_vektor_uk = np.array([2])# np.array([4, 6, 4, 2])
     d_pre_bot = np.array([410]) #height - 80, height - 120, height - 160])
@@ -56,11 +61,11 @@ if __name__ == "__main__":
 
     # Definerer karbonfiber
     # I eksempelet her er det valgt 50 mm bredde, 1.4 mm tykkelse, 1 på hver side -> 2 stk
-    a_carbon: ndarray = np.array([50 * 1.4 * 2])
+    a_carbon: ndarray = np.array([20 * 1.4 * 2])
     d_carbon: ndarray = np.array([height - 40])
     
     # Linjelaster - husk å ta hensyn til egenvekt av bjelke
-    q_uls: float = 20
+    q_uls: float = 30
     q_sls: float = 6 + 11.25
     q_montering: float = 1 # ved montering av karbonfiber
     
@@ -73,9 +78,9 @@ if __name__ == "__main__":
     
     
     # Momentverdier langs bjelken i det karbonfiberen monteres
-    moment_vector_uls: ndarray = get_moments_simply_supported_beam(q_uls, bjelkelengde, num_points=15)
-    moment_vector_sls: ndarray = get_moments_simply_supported_beam(q_sls, bjelkelengde, num_points=15)
-    moment_vector_montering: ndarray = get_moments_simply_supported_beam(q_montering, bjelkelengde, num_points=15)
+    moment_vector_uls: ndarray = get_moments_simply_supported_beam(q_uls, bjelkelengde, num_points=antall_punkter)
+    moment_vector_sls: ndarray = get_moments_simply_supported_beam(q_sls, bjelkelengde, num_points=antall_punkter)
+    moment_vector_montering: ndarray = get_moments_simply_supported_beam(q_montering, bjelkelengde, num_points=antall_punkter)
     
     moment_max_uls: float = moment_vector_uls.max()
     m_max_montering: float = moment_vector_montering.max()
@@ -87,7 +92,7 @@ if __name__ == "__main__":
         if armerings_kvalitet == "B500NC":
             armering: RebarMaterial = RebarB500NC()
         else:
-            armering: RebarMaterial = RebarB400NC() # armering: RebarMaterial = RebarB500NC()
+            armering: RebarMaterial = RebarB400NC()
     else: 
         armering = None
         as_area_bot, as_area_top = np.array([]), np.array([])
@@ -114,8 +119,14 @@ if __name__ == "__main__":
                              a_pre_bot=area_vector_uk, d_pre_bot=d_pre_bot,
                              a_pre_top=area_vector_ok, d_pre_top=d_pre_top,
                              a_carbon=a_carbon, d_carbon=d_carbon)
-        
+    
+    ##########################################    
     # -------- ULS ---------
+    # Forenkler og bruker maksimal høyde for tverrsnittet og maks moment
+    height_original = tverrsnitt.get_height()
+    height_max: float | int = height_original if isinstance(height_original, (float, int)) else height_original.max()
+    tverrsnitt.height = height_max
+    
     # Finner likevekt i mest belastet snitt for å finne differansetøyning i bjelke og karbonfiber
     if karbonfiber is not None:
         is_ck_not_cd: bool = True  # starter med bruks
@@ -126,15 +137,21 @@ if __name__ == "__main__":
         print(f"eps_carbon: {eps_carbon:.7f}")
         karbonfiber.set_eps_s_0_state(eps_carbon)
     
-    # Regner ut momentkapasitet i ULS (differanse i tverrsnitt og karbonfiber hensyntatt)
+    # Regner ut momentkapasitet i ULS (differanse i tverrsnitt og karbonfiber hensyntatt) med maks moment og største tverrsnittshøyde    
     alpha_uls, mom_kapasitet, eps_s, eps_c, z = integration_iterator_ultimate(
         tverrsnitt, betong, rebar_material=armering, rebar_pre_material=spennarmering,
         carbon_material=karbonfiber)
     
+    # Tverrsnitt får originale høydeverdier igjen
+    tverrsnitt.height = height_original
+    
+    # Printer resultater fra ULS-beregning
+    print("---- ULS ----")
     print(f"alpha: {alpha_uls:.3f}, mom: {mom_kapasitet/1e6:.1f} kNm, eps_c: {eps_c:.6f}, eps_s: {eps_s:.6f}")
 
-
+    ##########################################
     # ------ SLS ------------
+    print("---- SLS ----")
     curvatures, rotations, deflections, max_deflection = calc_deflection_with_curvatures(
         moment_vector_sls, moment_vector_montering, bjelkelengde, tverrsnitt, betong,
         rebar_material=armering, tendon_material=spennarmering, carbon_material=karbonfiber, eps_cs=eps_svinn)

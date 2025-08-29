@@ -217,7 +217,7 @@ def find_eps_carbon(eps_ok: float, eps_uk: float, tverrsnitt: Tverrsnitt) -> flo
     if len(a_carbon) == 0 or len(d_carbon) == 0:
         return 0.0  # Ingen karbonfiber i tverrsnittet
 
-    height_max = tverrsnitt.get_height_max()
+    height_max = tverrsnitt.get_height_i()
     delta_eps: float = (eps_uk - eps_ok) / height_max
     eps_carbon = np.zeros_like(a_carbon, dtype=float)
     for i in range(d_carbon.size):
@@ -233,7 +233,7 @@ def find_eps_carbon(eps_ok: float, eps_uk: float, tverrsnitt: Tverrsnitt) -> flo
         return 0.0
     return snitt_eps_karbon
 
-def get_moments_simply_supported_beam(q: float, length: float, num_points: int = 21, max_seg_length: float = 0.2) -> ndarray:
+def get_moments_simply_supported_beam(q: float, length: float, num_points: int = 21, max_seg_length: float = 0.5) -> ndarray:
     """Hjelpemetode for å finne momentfordeling i en enkeltspennsbjelke med jevnt fordelt last."""
     division_number = max(num_points, int(length / max_seg_length))
     x_points = np.linspace(0, length, division_number)

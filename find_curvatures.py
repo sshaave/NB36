@@ -35,6 +35,8 @@ def find_curvatures(moments: ndarray | float, m_montasje: ndarray | float, tverr
     for i, (moment, m_i_montasje) in enumerate(zip(moments, m_montasje)):
         m_i = moment * 1e3 + m_svinn
         m_i_m = m_i_montasje * 1e3 + m_svinn
+        tverrsnitt.set_height_i(i)
+        #print(f"Høyde i snitt {i}: {tverrsnitt.get_height_i():.1f} mm")
         if abs(m_i) < 0.1:
             kurvaturer[i] = 0
             continue

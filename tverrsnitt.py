@@ -19,6 +19,7 @@ class Tverrsnitt():
         d_carbon: ndarray = np.array([])
     ) -> None:
         self.height = height
+        self.height_i = height if isinstance(height, float) else height[0]
         self.width = width
         self.as_area_bot = as_area_bot
         self.as_area_top = as_area_top
@@ -40,6 +41,27 @@ class Tverrsnitt():
         if isinstance(self.height, ndarray):
             return self.height.max()
         return self.height
+    
+    def set_height_i(self, i: int) -> None:
+        """Setter hvilken høyde get_height_i henter verdi fra"""
+        if isinstance(self.height, ndarray):
+            if i >= len(self.height):
+                raise IndexError("Index i er utenfor rekkevidde for height-vektoren. Sjekk minstekrav i hjelpemetoder.py linje 236.")
+            self.height_i = self.height[i]
+        else:
+            self.height_i = self.height
+
+    
+    def set_height_to_max(self) -> None:
+        """Setter høyden til maksimal verdi"""
+        if isinstance(self.height, ndarray):
+            self.height_i = self.height.max()
+        else:
+            self.height_i = self.height
+    
+    def get_height_i(self) -> float:
+        """ Gir høyden for satt snitt"""
+        return self.height_i
     
     def get_width(self, height: float) -> float:
         """ Gir tilbake bredde for en høyde, brukerdefinert funksjon"""

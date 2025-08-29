@@ -299,6 +299,10 @@ class ConcreteMaterial(Material):
         self.get_eps_cu_c_n()
         self.gamma = 1.5
         self.creep_eff: float = 0.0  # Effektivt kryptall
+    
+    def set_f_ctm_to_0(self) -> None:
+        """Setter strekkfastheten f_ctm til 0"""
+        self.f_ctm = 0.0
 
     def get_stress(self, strain: float, is_ck_not_cd: bool = True) -> float:
         # Sargin er ikke klar for ULS, men det gjør ingenting for bjelker

@@ -4,7 +4,7 @@ import math
 import sys
 from typing import Tuple
 import numpy as np
-from numpy import array, ndarray
+from numpy import ndarray
 from materialmodeller import (
     CarbonFiber,
     CarbonMaterial,
@@ -112,8 +112,7 @@ def section_integrator(
 ) -> Tuple[float, float, float, float]:
     """Integrerer opp tverrsnittet"""
     # Starter med å finne alpha fra tøyningene. Antar at tøyninger som gir trykk er positive, og strekk negativt.
-    d_bot, d_top = tverrsnitt.get_d_bot(), tverrsnitt.get_d_top()
-    height, height_max = tverrsnitt.get_height(),tverrsnitt.get_height_max()
+    d_bot, d_top, height = tverrsnitt.get_d_bot(), tverrsnitt.get_d_top(), tverrsnitt.get_height_i()
     d_pre_bot, d_pre_top = tverrsnitt.get_d_pre_bot(), tverrsnitt.get_d_pre_top()
     d_carbon, a_carbon = tverrsnitt.get_d_carbon(), tverrsnitt.get_a_carbon()
     as_bot, as_top = tverrsnitt.get_as_area_bot(), tverrsnitt.get_as_area_top()
@@ -129,7 +128,7 @@ def section_integrator(
         d_pre_bot_0 = d_pre_bot[0]
 
     d_0 = max(d_bot_0, d_pre_bot_0)
-    delta_eps: float = (eps_uk - eps_ok) / height_max
+    delta_eps: float = (eps_uk - eps_ok) / height
     eps_s = eps_uk - delta_eps * (height - d_0)  # Geometrisk tøyning i sone 0
     eps_s_d0 = eps_s
     alpha: float = min(max(-eps_ok / (eps_s_d0 - eps_ok), 0), 1)
@@ -247,6 +246,11 @@ def section_integrator(
     else:
         d_strekk_avg: float = 0
 
+    # Strekkbidrag fra betongen
+    if is_ck_not_cd and material.f_ctm > 0:
+        # Betongen kan ta strekk
+        todo = 2
+
     # Summerer strekkbidragene
     sum_strekk = sum_f_strekk_armering + f_strekk_tendon + f_strekk_karbon
 
@@ -321,7 +325,7 @@ def objective_function_eps_c(
     Metode som kaller "calc_inner_state" og returnerer riktig versjon av M / M.
     """
     # Kaller funksjonen calc_inner_state for å beregne indre tilstand
-    eps_ok, eps_uk = eps_c_and_eps_s_to_eps_ok_uk(eps_c, eps_s, tverrsnitt.get_height_max(), tverrsnitt.get_d0_bot())
+    eps_ok, eps_uk = eps_c_and_eps_s_to_eps_ok_uk(eps_c, eps_s, tverrsnitt.get_height_i(), tverrsnitt.get_d0_bot())
     alpha, f_b, f_s, z = section_integrator(
         eps_ok, eps_uk, tverrsnitt, material, rebar_material, tendon_material=rebar_pre_material,
         carbon_material=carbon_material, is_ck_not_cd=is_ck_not_cd,

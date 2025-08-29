@@ -115,17 +115,21 @@ if __name__ == "__main__":
         a_carbon, d_carbon = np.array([]), np.array([])
     ##########################################
     # Lagrer tverrsnittobjektet
-    tverrsnitt: Tverrsnitt = Tverrsnitt(height, width, as_area_bot, as_area_top, d_bot, d_top,
+    # Starter med å lage høydevektor hvis kun ett tall er gitt
+    if isinstance(height, (float, int)):
+        height_vector = np.full(antall_punkter, height)
+    else:
+        height_vector = height
+         
+    tverrsnitt: Tverrsnitt = Tverrsnitt(height_vector, width, as_area_bot, as_area_top, d_bot, d_top,
                              a_pre_bot=area_vector_uk, d_pre_bot=d_pre_bot,
                              a_pre_top=area_vector_ok, d_pre_top=d_pre_top,
                              a_carbon=a_carbon, d_carbon=d_carbon)
     
-    ##########################################    
+    ##########################################
     # -------- ULS ---------
     # Forenkler og bruker maksimal høyde for tverrsnittet og maks moment
-    height_original = tverrsnitt.get_height()
-    height_max: float | int = height_original if isinstance(height_original, (float, int)) else height_original.max()
-    tverrsnitt.height = height_max
+    # må fikse get_height() rundtom
     
     # Finner likevekt i mest belastet snitt for å finne differansetøyning i bjelke og karbonfiber
     if karbonfiber is not None:

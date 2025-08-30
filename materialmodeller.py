@@ -303,6 +303,10 @@ class ConcreteMaterial(Material):
     def set_f_ctm_to_0(self) -> None:
         """Setter strekkfastheten f_ctm til 0"""
         self.f_ctm = 0.0
+        
+    def get_f_ctm(self) -> float:
+        """Gir tilbake f_ctm i N/mm2"""
+        return self.f_ctm
 
     def get_stress(self, strain: float, is_ck_not_cd: bool = True) -> float:
         # Sargin er ikke klar for ULS, men det gjør ingenting for bjelker
@@ -410,6 +414,10 @@ class ConcreteMaterial(Material):
     def get_eps_cu_eff(self) -> float:
         """Hent effektiv bruddtøyning"""
         return self.eps_cu * (1 + self.creep_eff)
+    
+    def get_e_cm(self) -> float:
+        """E-modul for betong i N/mm2"""
+        return self.e_cm
 
 
 if __name__ == "__main__":

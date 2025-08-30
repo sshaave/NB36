@@ -5,6 +5,7 @@ import sys
 from typing import Tuple
 import numpy as np
 from numpy import ndarray
+from strekk_betong import beregn_strekk_betong
 from materialmodeller import (
     CarbonFiber,
     CarbonMaterial,
@@ -249,7 +250,8 @@ def section_integrator(
     # Strekkbidrag fra betongen
     if is_ck_not_cd and material.f_ctm > 0:
         # Betongen kan ta strekk
-        todo = 2
+        alpha_d: float = alpha * d_0
+        f_s_bet, d_s_bet = beregn_strekk_betong(material, tverrsnitt, alpha_d, eps_uk)
 
     # Summerer strekkbidragene
     sum_strekk = sum_f_strekk_armering + f_strekk_tendon + f_strekk_karbon

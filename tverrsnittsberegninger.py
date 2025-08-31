@@ -32,7 +32,7 @@ def integrate_cross_section(
     sum_mom = 0
     height_compression = height_total - height_ec_zero
 
-    iterations = 100
+    iterations = 50
     delta_e = (eps_ok - eps_uk) / iterations
     delta_h = height_compression / iterations
     for i in range(1, iterations):

@@ -14,15 +14,20 @@ def beregn_strekk_betong(material: ConcreteMaterial, ts: Tverrsnitt, alpha_d: fl
     eps_ctm: float = f_ctm / e_cm
     assert eps_uk > 0, "eps_uk må være positiv for å ha strekk i betongen"
     
-    iterations = 25
+    iterations = 50
     delta_eps: float = eps_uk / iterations
     delta_h: float = height_tension / iterations
     sum_f, sum_mom = 0.0, 0.0
-    for i in range(iterations):
+    for i in range(1, iterations):
         height_i = delta_h * (i + 0.5)  # mm
         width_i = ts.get_width(height_i)
-    
-    spenning: float = bilinear_tension_model(eps_i, e_cm, f_ctm, eps_ctm)
+        area: float = height_i * width_i
+        
+        eps_i = delta_eps * (i - 0.5)
+        spenning: float = bilinear_tension_model(eps_i, e_cm, f_ctm, eps_ctm, eps_s_u)
+        f_i = area * spenning
+        sum_f += f_i
+        sum_mom += f_i * (height_i + )
     
     
     d_s_bet = d_strekk_avg / 2  # mm, midt i strekksonen

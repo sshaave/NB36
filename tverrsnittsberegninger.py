@@ -33,18 +33,17 @@ def integrate_cross_section(
     height_compression = height_total - height_ec_zero
 
     iterations = 50
-    delta_e = (eps_ok - eps_uk) / iterations
+    delta_eps = (eps_ok - eps_uk) / iterations
     delta_h = height_compression / iterations
     for i in range(1, iterations):
         height_i = height_ec_zero + delta_h * i
         width_i = tverrsnitt.get_width(height_i)
         area_i = width_i * delta_h
 
-        eps_i = eps_uk + delta_e * (i - 0.5)
+        eps_i = eps_uk + delta_eps * (i - 0.5)
         sigma_i = material.get_stress(eps_i, is_ck_not_cd=is_ck_not_cd)
         if sigma_i == 0 and eps_i != 0:
             print(f"eps_i: {eps_i}, sigma_i: {sigma_i}, height_i: {height_i}, delta_h: {delta_h}")
-        sigma_i = material.get_stress(eps_i, is_ck_not_cd=is_ck_not_cd)
         f_i = area_i * sigma_i
         sum_f += f_i
         sum_mom += f_i * (height_i - height_ec_zero - delta_h / 2)

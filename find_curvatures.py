@@ -74,5 +74,4 @@ def find_curvatures(moments: ndarray | float, m_montasje: ndarray | float, tverr
         kurvaturer[i] = (eps_ok - eps_uk) / tot_height
         #print(f"Kurvatur {i}: {kurvaturer[i]:.12f}  (eps_ok: {eps_ok:.7f}, eps_uk: {eps_uk:.7f})")
 
-
     return kurvaturer

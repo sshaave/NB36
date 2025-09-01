@@ -132,9 +132,9 @@ def section_integrator(
     eps_s = eps_uk - delta_eps * (height - d_0)  # Geometrisk tøyning i sone 0
     eps_s_d0 = eps_s
     alpha: float = min(max(-eps_ok / (eps_s_d0 - eps_ok), 0), 1)
-    """if __debug__ and alpha in (0, 1):
+    #if alpha in (0, 1):
         # Ugyldig verdi, feil i utregning
-        print(f"feil i alpha. eps_ok: {eps_ok:.6f}, eps_uk: {eps_uk:.6f}", alpha)"""
+    #    print(f"feil i alpha: {alpha:.3f}. eps_ok: {eps_ok:.6f}, eps_uk: {eps_uk:.6f}")
 
     # Ønsker å finne hvilke lag som har strekk og trykk (og størrelse på kreftene)
     # Slakkarmering
@@ -147,11 +147,10 @@ def section_integrator(
         d_strekk, f_strekk, d_trykk, f_trykk = evaluate_reinforcement_from_strain(
             d_vector, rebar_vector, height, eps_ok, eps_uk, rebar_material, material, True, is_ck_not_cd,
         )
+        eps_s_u_rebar: float = rebar_material.get_eps_s_u()
     else:
-        f_strekk: float = 0
-        f_trykk: float = 0
-        d_strekk_avg: float = 0
-        d_trykk_avg: float = 0
+        f_strekk, f_trykk, eps_s_u_rebar = 0., 0., 99.
+        d_strekk_avg, d_trykk_avg = 0., 0.
         d_strekk: ndarray = np.array([])
     
     # Summerer kreftene (selv om de er 0)
@@ -163,6 +162,7 @@ def section_integrator(
         d_strekk_rebar: float = np.dot(f_strekk, d_strekk) / max(sum_f_strekk_armering, 1)
 
     if tendon_material is not None:
+        eps_s_u_tendon: float = tendon_material.get_eps_s_u()
         if d_pre_top is not None:
             d_vector_tendon: ndarray = np.concatenate((d_pre_bot, d_pre_top), axis=0)
             tendon_area_vector: ndarray = np.concatenate((a_pre_bot, a_pre_top), axis=0)
@@ -202,12 +202,12 @@ def section_integrator(
             )
 
     else:
-        f_strekk_tendon: float = 0
-        f_trykk_tendon: float = 0
-        d_strekk_tendon_avg: float = 0
-        d_trykk_tendon_avg: float = 0
+        f_strekk_tendon, f_trykk_tendon = 0., 0.
+        d_strekk_tendon_avg, d_trykk_tendon_avg = 0., 0.
+        eps_s_u_tendon = 99.
 
     if carbon_material is not None:
+        eps_s_u_carbon: float = carbon_material.get_eps_s_u()
         d_strekk_karbon, f_strekk_karbon_vec, d_trykk_karbon, f_trykk_karbon_vec = (
             evaluate_reinforcement_from_strain(d_carbon, a_carbon, height, eps_ok, eps_uk,
                 carbon_material, material, False, is_ck_not_cd,
@@ -231,33 +231,35 @@ def section_integrator(
             d_trykk_karbon_avg: float = m_trykk_karbon / f_trykk_karbon
 
     else:
-        f_strekk_karbon: float = 0
-        f_trykk_karbon: float = 0
-        d_strekk_karbon_avg: float = 0
-        d_trykk_karbon_avg: float = 0
+        f_strekk_karbon, f_trykk_karbon = 0., 0.
+        d_strekk_karbon_avg, d_trykk_karbon_avg = 0., 0.
+        eps_s_u_carbon: float = 99.
 
-    # Tyngdepunkt for armering
+
+    alpha_d: float = alpha * d_0
+    f_strekk_betong, d_strekk_betong = 0., 0.
+    # Strekkbidrag fra betongen
+    if is_ck_not_cd and material.f_ctm > 0:
+        # Betongen kan ta strekk
+        eps_s_u_tension = min(eps_s_u_rebar, eps_s_u_tendon, eps_s_u_carbon)
+        f_strekk_betong, d_strekk_betong = beregn_strekk_betong(
+            material, tverrsnitt, alpha_d, eps_uk, eps_s_u_tension)
+
+    # Summerer strekkbidragene
+    sum_strekk = sum_f_strekk_armering + f_strekk_tendon + f_strekk_karbon + f_strekk_betong
+
+    # Tyngdepunkt for strekk
     if sum_f_strekk_armering > 0 or f_strekk_tendon > 0:
         d_strekk_avg: float = (
             d_strekk_rebar * sum_f_strekk_armering
             + d_strekk_tendon_avg * f_strekk_tendon
             + d_strekk_karbon_avg * f_strekk_karbon
-        ) / (sum_f_strekk_armering + f_strekk_tendon + f_strekk_karbon)
+            + d_strekk_betong * f_strekk_betong
+        ) / sum_strekk
     else:
         d_strekk_avg: float = 0
-
-    # Strekkbidrag fra betongen
-    if is_ck_not_cd and material.f_ctm > 0:
-        # Betongen kan ta strekk
-        alpha_d: float = alpha * d_0
-        f_s_bet, d_s_bet = beregn_strekk_betong(material, tverrsnitt, alpha_d, eps_uk)
-
-    # Summerer strekkbidragene
-    sum_strekk = sum_f_strekk_armering + f_strekk_tendon + f_strekk_karbon
-
-    alpha_d: float = alpha * d_0
+    
     eps_c_uk = 0.0  # bøyning, en del vil alltid være i strekk så setter denne 0 for integralet sin del
-
     height_uk = height - alpha_d
     f_bet, d_alpha_d = integrate_cross_section(
         eps_ok, eps_c_uk, height_uk, height, material, tverrsnitt, is_ck_not_cd)

@@ -285,7 +285,7 @@ class Tendon(RebarMaterial):
 class ConcreteMaterial(Material):
     """Betongmateriale etter NS-EN 1992"""
 
-    def __init__(self, f_ck: int, material_model: str = "Sargin") -> None:
+    def __init__(self, f_ck: int, materialmodell: str = "Sargin") -> None:
         self.f_ck = -f_ck
         self.f_cd = self.f_ck / 1.5 * 0.85
         self.f_ctm: float = 0
@@ -294,7 +294,7 @@ class ConcreteMaterial(Material):
         self.f_cm: float = 0
         self.eps_cy: float = 0
         self.eps_cu: float = 0
-        self.material_model = material_model
+        self.material_model = materialmodell
         self.f_ctm, self.e_cm = self.fetch_material_parameters()
         self.get_eps_cu_c_n()
         self.gamma = 1.5
@@ -418,12 +418,3 @@ class ConcreteMaterial(Material):
     def get_e_cm(self) -> float:
         """E-modul for betong i N/mm2"""
         return self.e_cm
-
-
-if __name__ == "__main__":
-    betong_b35: ConcreteMaterial = ConcreteMaterial(35, material_model="Parabola")
-    print("Hei")
-    f_cd_temp = betong_b35.get_stress(0.0005)
-    print("f_cd_temp:", f_cd_temp)
-    # sum_f, sum_m, d_bet = integrate_cross_section(0.0035, 0, 0, 200, betong_b35, 300)
-    # print(f"Force is {sum_f / 1000:.1f} kN")

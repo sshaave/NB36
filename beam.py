@@ -1,4 +1,19 @@
-"""Beregningsprogram for fritt opplagt betongbjelke med jevnt fordelt last"""
+"""Beregningsprogram for fritt opplagt betongbjelke med jevnt fordelt last
+
+    Dette programmet regner på fritt opplagte bjelker med jevnt fordelt last. Betongbjelkens tverrsnitt kan være av alle,
+    og må defineres ved bruk av "width_function" rett over main-funksjonen. Hvis bjelken har varierende tverrsnittshøyde (SDT),
+    må height være en vektor for som har samme størrelse som momentvektor.
+
+    Materialer:
+     - betong med og uten strekkfasthet (strekkfasthet kun i SLS)
+     - vanlig slakkarmering B500NC eller B400NC
+     - spennarmering (pass på spennkraft, programmet setter den til 0 aka forblender den, hvis likevekt ikke oppnås i gitt snitt)
+     - karbonfiber
+
+     På grunn av programmet er satt opp for å ha strekksone kun i UK kan ikke kontinuerlige bjelker regnes på.
+
+     For andre typer laster (punktlaster) må brukeren selv sette opp momentvektorene.
+"""
 import numpy as np
 from numpy import ndarray
 from hjelpemetoder import calc_deflection_with_curvatures, find_eps_carbon, get_moments_simply_supported_beam
@@ -31,23 +46,24 @@ def width_function(height_i: float, var_height: float = 0) -> float:
     return 420
 
 if __name__ == "__main__":
-    # Definerer materialer
-    f_ck: float = 45                            # Betongkvalitet
-    materialmodell = "Parabola"                 # kan velge mellom Parabola og Sargin (pass på)
-    strekkfast_betong_SLS: bool = True         # Velg om strekkfasthet skal inkluderes for SLS-beregninger
-    betong: ConcreteMaterial = ConcreteMaterial(f_ck, materialmodell)
-
+    ### INPUT STARTER ###
     # Bjelkens lengde
     bjelkelengde: float = 5                     # i m
 
-    # Definerer tverrsnitt. Høyde (total høyde) er en vektor og bredde kan være et tall eller en funksjon.
-    # For et I-tverrsnitt må totalhøyde være vektor og bredde en funksjon av høyden
+    # Betongparametere
+    f_ck: float = 45                            # Betongkvalitet
+    materialmodell = "Parabola"                 # kan velge mellom Parabola og Sargin (pass på)
+    strekkfast_betong_SLS: bool = True          # Velg om strekkfasthet skal inkluderes for SLS-beregninger
+    betong: ConcreteMaterial = ConcreteMaterial(f_ck, materialmodell)
+
+    # Definerer tverrsnitt. Høyde (total høyde) kan være en vektor og bredde kan være et tall eller en funksjon.
+    # For et I-tverrsnitt må totalhøyde være en vektor og bredde en funksjon av høyden
     height = 450                                # Høyden må ha like mange datapunkt som momentvektoren
 
     # Bredde kan være et tall eller en funksjon (funksjon er nødvendig for I-tverrsnitt)
-    width = 1000.                               # width = width_function # width = 300 er også et alternativ
+    width = 1000.                               # width = width_function er også et alternativ
 
-    # Antall snitt langs bjelken. Hvis høyde er en vektor (varierende høyde) punkter etter det
+    # Antall snitt langs bjelken
     antall_punkter_standard: int = 11           # benyttes hvis høyde er ett tall. Kan endres på av bruker
     antall_punkter: int = len(height) if isinstance(height, (list, ndarray)) else antall_punkter_standard
 
@@ -59,7 +75,7 @@ if __name__ == "__main__":
     d_top = np.array([61])                      # Måles fra OK betong
 
     # Definerer spennarmering. Kablene har areal på 100mm2
-    forspenningskraft: float = 0.               # Forspenningskraft i kN. Pass på, for mye forspenning krever forblending
+    forspenningskraft: float = 0.               # Forspenningskraft i kN. Pass på, for mye forspenning gir forblending i evaluert snitt
     antall_vektor_ok = np.array([0])
     antall_vektor_uk = np.array([0])            # For eksempel np.array([4, 6, 4, 2])
     d_pre_bot = np.array([410])                 # height - 80, height - 120, height - 160])
@@ -77,7 +93,7 @@ if __name__ == "__main__":
 
     # Svinntøyning og effektivt kryptall
     eps_svinn_promille: float = -0.0            # -0.01 eksempelverdi
-    eps_svinn: float = eps_svinn_promille / 1000
+    eps_svinn: float = eps_svinn_promille / 1e3
     creep_eff: float = 1.6                      # 1.61 eksempelverdi
 
     ### INPUT FERDIG ###
@@ -98,13 +114,12 @@ if __name__ == "__main__":
     assert len(a_carbon) == len(d_carbon), "Feil i input for karbonfiber. A- og d-vektor må være like lange"
 
     # Lager materialer hvis det er definert arealer og avstander er definert
-    ##########################################
     betong.set_creep(creep_eff)
     if not strekkfast_betong_SLS:
         betong.set_f_ctm_to_0()
     if (sum(d_bot) > 0 and sum(as_area_bot) > 0) or (sum(d_top) > 0 and sum(as_area_top) > 0):
         armering: RebarMaterial = RebarB500NC() if armeringskvalitet == "B500NC" else RebarB400NC()
-    else: 
+    else:
         armering, as_area_bot, as_area_top = None, np.array([]), np.array([])
         d_bot, d_top = np.array([]), np.array([])
 
@@ -121,7 +136,6 @@ if __name__ == "__main__":
         karbonfiber: CarbonMaterial = CarbonFiber()
     else:
         karbonfiber, a_carbon, d_carbon = None, np.array([]), np.array([])
-    ##########################################
     
     # Lagrer tverrsnittobjektet
     # Starter med å lage høydevektor hvis kun ett tall er gitt

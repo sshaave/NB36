@@ -48,29 +48,29 @@ def find_curvatures(moments: ndarray | float, m_montasje: ndarray | float, tverr
             )
             eps_carbon = find_eps_carbon(eps_ok_0, eps_uk_0, tverrsnitt)
             carbon_material.set_eps_s_0_state(eps_carbon)
-        
+
         eps_ok, eps_uk, _, _ = find_equilibrium_strains(m_i, material, tverrsnitt,
             rebar_material, tendon_material, carbon_material, eps_ok, eps_uk, is_ck_not_cd
         )
-        
+
         # Sjekker om konvergens ble funnet
         if eps_ok == 0. and eps_uk == 0.:
             # Ingen konvergens. Forblender (setter forspenning til 0 og prøver igjen)
-            print(f"Fant ikke konvergens i snitt {i} med moment {moment} kNm, ")
+            print(f"Fant ikke konvergens i snitt {i} med moment {moment:.1f} kNm. Setter forspenning til 0 ")
             tendon_material.set_fp(0)
             eps_ok, eps_uk = -0.0005, 0.0005
             eps_ok, eps_uk, _, _ = find_equilibrium_strains(m_i, material, tverrsnitt,
                 rebar_material, tendon_material, carbon_material, eps_ok, eps_uk, is_ck_not_cd
             )
             tendon_material.set_fp(forspenning)
-            print(f"forspenning: {tendon_material.get_fp()} kN")
-            
+            #print(f"forspenning: {tendon_material.get_fp()} kN")
+
             if eps_ok == 0. and eps_uk == 0.:
                 raise ValueError(f" ----- Fant ikke konvergens i snitt {i} med moment {moment} kNm, "
                                  "selv etter å ha satt forspenning til 0. ----- ")
-            print(f"Fant konvergens etter å ha satt forspenning til 0. "
-                  f"eps_ok: {eps_ok:.7f}, eps_uk: {eps_uk:.7f}")
-            
+            #print(f"Fant konvergens etter å ha satt forspenning til 0. "
+            #      f"eps_ok: {eps_ok:.7f}, eps_uk: {eps_uk:.7f}")
+
         kurvaturer[i] = (eps_ok - eps_uk) / tot_height
         #print(f"Kurvatur {i}: {kurvaturer[i]:.12f}  (eps_ok: {eps_ok:.7f}, eps_uk: {eps_uk:.7f})")
 

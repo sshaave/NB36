@@ -75,9 +75,9 @@ if __name__ == "__main__":
     d_top = np.array([61])                      # Måles fra OK betong
 
     # Definerer spennarmering. Kablene har areal på 100mm2
-    forspenningskraft: float = 0.               # Forspenningskraft i kN. Pass på, for mye forspenning gir forblending i evaluert snitt
+    forspenningskraft: float = 20.               # Forspenningskraft i kN. Pass på, for mye forspenning gir forblending i evaluert snitt
     antall_vektor_ok = np.array([0])
-    antall_vektor_uk = np.array([0])            # For eksempel np.array([4, 6, 4, 2])
+    antall_vektor_uk = np.array([2])            # For eksempel np.array([4, 6, 4, 2])
     d_pre_bot = np.array([410])                 # height - 80, height - 120, height - 160])
     d_pre_top = np.array([40])
 
@@ -96,7 +96,9 @@ if __name__ == "__main__":
     eps_svinn: float = eps_svinn_promille / 1e3
     creep_eff: float = 1.6                      # 1.61 eksempelverdi
 
-    ### INPUT FERDIG ###
+    #### INPUT FERDIG ####
+
+    ### Initialisering ###
 
     # Momentverdier langs bjelken i det karbonfiberen monteres
     moment_vector_uls: ndarray = get_moments_simply_supported_beam(q_uls, bjelkelengde, num_points=antall_punkter)
@@ -136,7 +138,7 @@ if __name__ == "__main__":
         karbonfiber: CarbonMaterial = CarbonFiber()
     else:
         karbonfiber, a_carbon, d_carbon = None, np.array([]), np.array([])
-    
+
     # Lagrer tverrsnittobjektet
     # Starter med å lage høydevektor hvis kun ett tall er gitt
     if isinstance(height, (float, int)):
@@ -149,8 +151,9 @@ if __name__ == "__main__":
                              a_pre_top=area_vector_ok, d_pre_top=d_pre_top,
                              a_carbon=a_carbon, d_carbon=d_carbon)
 
-    ##########################################
-    # -------- ULS ---------
+    # -- Initialisering ferdig -- #
+    # ---------- ULS ------------ #
+
     # Forenkler og bruker maksimal høyde for tverrsnittet og maks moment
     tverrsnitt.set_height_to_max()
     # Finner likevekt i mest belastet snitt for å finne differansetøyning i bjelke og karbonfiber
@@ -164,18 +167,21 @@ if __name__ == "__main__":
         karbonfiber.set_eps_s_0_state(eps_carbon)
 
     # Regner ut momentkapasitet i ULS (differanse i tverrsnitt og karbonfiber hensyntatt) med maks moment og største tverrsnittshøyde
+    print("--------------- ULS ---------------")
     alpha_uls, mom_kapasitet, eps_s, eps_c, z = integration_iterator_ultimate(
         tverrsnitt, betong, rebar_material=armering, rebar_pre_material=spennarmering,
         carbon_material=karbonfiber)
 
     # Printer resultater fra ULS-beregning
-    print("---- ULS ----")
-    print(f"alpha: {alpha_uls:.3f}, mom: {mom_kapasitet/1e6:.1f} kNm, eps_c: {eps_c:.6f}, eps_s: {eps_s:.6f}")
+    print(f"Momentkapasitet: {mom_kapasitet/1e6:.1f} kNm, betongtøyning: {eps_c:.6f}, armeringstøyning: {eps_s:.6f}")
+    if alpha_uls > 0.617:
+        print(f"Alpha: {alpha_uls:.3f} -> Overarmert tverrsnitt")
+    else:
+        print(f"Alpha: {alpha_uls:.3f} -> Underarmert tverrsnitt")
 
-    ##########################################
-    # ------ SLS ------------
-    print("---- SLS ----")
+     # ---------- SLS ------------ #
+    print("--------------- SLS ---------------")
     curvatures, rotations, deflections, max_deflection = calc_deflection_with_curvatures(
         moment_vector_sls, moment_vector_montering, bjelkelengde, tverrsnitt, betong,
-        rebar_material=armering, tendon_material=spennarmering, carbon_material=karbonfiber, eps_cs=eps_svinn)
-    print(f"Største deformasjon: {np.round(max_deflection, 2)} mm")
+        armering, spennarmering, karbonfiber, eps_svinn, True)
+    print(f"Største nedbøyning: {np.round(max_deflection, 2)} mm")

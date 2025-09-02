@@ -31,7 +31,7 @@ class Tverrsnitt():
         self.d_pre_top = d_pre_top
         self.a_carbon = a_carbon
         self.d_carbon = d_carbon
-        
+
     def get_height(self) -> float | ndarray:
         """Gir tilbake høyde (kan være vektor)"""
         return self.height
@@ -41,7 +41,7 @@ class Tverrsnitt():
         if isinstance(self.height, ndarray):
             return self.height.max()
         return self.height
-    
+
     def set_height_i(self, i: int) -> None:
         """Setter hvilken høyde get_height_i henter verdi fra"""
         if isinstance(self.height, ndarray):
@@ -51,24 +51,23 @@ class Tverrsnitt():
         else:
             self.height_i = self.height
 
-    
     def set_height_to_max(self) -> None:
         """Setter høyden til maksimal verdi"""
         if isinstance(self.height, ndarray):
             self.height_i = self.height.max()
         else:
             self.height_i = self.height
-    
+
     def get_height_i(self) -> float:
         """ Gir høyden for satt snitt"""
         return self.height_i
-    
+
     def get_width(self, height: float) -> float:
         """ Gir tilbake bredde for en høyde, brukerdefinert funksjon"""
         if callable(self.width):
             return self.width(height)
         return self.width
-    
+
     def get_as_area_bot(self) -> ndarray:
         return self.as_area_bot
 

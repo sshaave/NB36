@@ -20,6 +20,7 @@
      - Føroppspenning: Delvis forblending er løst ved å senke beregningsmessig spennkraft i aktuelt snitt
      - Kryp- og svinnverdier må brukeren gi
      - Skjærkapasitet ikke kontrollert
+     - Kun jevnt fordelte laster lagt inn
 """
 import numpy as np
 from numpy import ndarray

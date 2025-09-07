@@ -1,4 +1,5 @@
 """Hjelpemetoder"""
+
 from typing import Tuple
 import numpy as np
 from numpy import ndarray
@@ -7,16 +8,16 @@ from materialmodeller import CarbonMaterial, ConcreteMaterial, RebarMaterial
 from find_curvatures import find_curvatures
 from tverrsnitt import Tverrsnitt
 
+
 def eps_c_and_eps_s_to_eps_ok_uk(
-    eps_c: float,
-    eps_s: float,
-    height: float,
-    d0_strekk: float) -> Tuple[float, float]:
+    eps_c: float, eps_s: float, height: float, d0_strekk: float
+) -> Tuple[float, float]:
     """Gjør om eps_c og eps_s til tøyninger i ok og uk"""
     delta_eps: float = (eps_s - eps_c) / d0_strekk
     eps_uk = eps_s + delta_eps * (height - d0_strekk)
 
     return eps_c, eps_uk
+
 
 def eps_ok_uk_to_c_and_s(
     eps_ok: float,
@@ -25,7 +26,7 @@ def eps_ok_uk_to_c_and_s(
     strekk_uk: bool,
     strekk_ok: bool,
     d0_strekk: float,
-    d0_trykk: float
+    d0_trykk: float,
 ) -> Tuple[float, float, float]:
     """Metode for å gjøre om over- og underkantøyningter. Returerer betongtøyning, armeringstøyning og alpha."""
     tolerance: float = 1e-8
@@ -64,28 +65,54 @@ def eps_ok_uk_to_c_and_s(
     return min(eps_ok, eps_uk), 0.0, alpha
 
 
-def calc_deflection_with_curvatures(moments: ndarray | float, m_montasje: ndarray | float, lengde: float, tverrsnitt: Tverrsnitt,
-    material: ConcreteMaterial, rebar_material: RebarMaterial = None, tendon_material: RebarMaterial = None,
-    carbon_material: CarbonMaterial = None, eps_cs: float = 0,
-    is_ck_not_cd: bool = True) -> Tuple[ndarray, ndarray, ndarray, float]:
+def calc_deflection_with_curvatures(
+    moments: ndarray | float,
+    m_montasje: ndarray | float,
+    lengde: float,
+    tverrsnitt: Tverrsnitt,
+    material: ConcreteMaterial,
+    rebar_material: RebarMaterial = None,
+    tendon_material: RebarMaterial = None,
+    carbon_material: CarbonMaterial = None,
+    eps_cs: float = 0,
+    is_ck_not_cd: bool = True,
+    print_fp: bool = False,
+) -> Tuple[ndarray, ndarray, ndarray, float]:
     """Metode for å regne ut forskyvning med krumninger."""
-    curvatures = find_curvatures(moments, m_montasje, tverrsnitt, material, rebar_material, tendon_material,
-                                 carbon_material, eps_cs, is_ck_not_cd)
+    curvatures = find_curvatures(
+        moments,
+        m_montasje,
+        tverrsnitt,
+        material,
+        lengde,
+        rebar_material,
+        tendon_material,
+        carbon_material,
+        eps_cs,
+        is_ck_not_cd,
+        print_fp,
+    )
 
     # Definerer iterasjonsverdier
     tolerance, max_iter = 1e-7, 15
-    rotations, deflections = curvatures_to_deflections(curvatures, lengde * 1000, tolerance, max_iter)
+    rotations, deflections = curvatures_to_deflections(
+        curvatures, lengde * 1000, tolerance, max_iter
+    )
     max_deflection = np.max(np.abs(deflections))
 
     return curvatures, rotations, deflections, max_deflection
 
 
-def curvatures_to_deflections(curvatures: ndarray, lengde: float, tolerance: float, max_iter: int) -> Tuple[ndarray, ndarray]:
+def curvatures_to_deflections(
+    curvatures: ndarray, lengde: float, tolerance: float, max_iter: int
+) -> Tuple[ndarray, ndarray]:
     """Konverterer krumninger til rotasjoner og forskyvninger."""
     n = len(curvatures)
     if n < 5:
         # egentlig 3 lol
-        raise ValueError("Krumninger må ha minst 5 punkter for å kunne konverteres til rotasjoner og forskyvninger.")
+        raise ValueError(
+            "Krumninger må ha minst 5 punkter for å kunne konverteres til rotasjoner og forskyvninger."
+        )
 
     # Antar jevn avstand mellom beregningssnittene
     dx = lengde / (n - 1)
@@ -120,6 +147,7 @@ def curvatures_to_deflections(curvatures: ndarray, lengde: float, tolerance: flo
 
     return rotations, deflections
 
+
 def cumulative_trapezoidal(y: ndarray, dx: float) -> ndarray:
     """Integrerer opp"""
     n = len(y)
@@ -131,13 +159,23 @@ def cumulative_trapezoidal(y: ndarray, dx: float) -> ndarray:
 
     return integral
 
+
 def help_function_grid(
-    eps_ok: float, eps_uk: float, moment: float, tverrsnitt: Tverrsnitt, material: ConcreteMaterial = None,
-    rebar_material: RebarMaterial = None, rebar_pre_material: RebarMaterial = None, carbon_material: CarbonMaterial = None,
-    is_ck_not_cd: bool = True, steps: int = 7, search_step: float = 0.000005
+    eps_ok: float,
+    eps_uk: float,
+    moment: float,
+    tverrsnitt: Tverrsnitt,
+    material: ConcreteMaterial = None,
+    rebar_material: RebarMaterial = None,
+    rebar_pre_material: RebarMaterial = None,
+    carbon_material: CarbonMaterial = None,
+    is_ck_not_cd: bool = True,
+    steps: int = 7,
+    search_step: float = 0.000005,
 ) -> Tuple[float, float]:
     """Hjelpemetode for å finne tøyninger ved hjelp av grid search."""
     from tverrsnittsberegninger import innerstate_beam
+
     # Implementasjon av grid search for å finne eps_ok og eps_uk
     best_norm = 1e12
     best_eps_ok = eps_ok
@@ -148,8 +186,17 @@ def help_function_grid(
             eps_ok_test = min(eps_ok + d_ok * search_step, -1.1e-8)
             eps_uk_test = max(eps_uk + d_uk * search_step, 1.1e-8)
 
-            f_i, m_i = innerstate_beam(eps_ok_test, eps_uk_test, tverrsnitt, moment, material, rebar_material,
-                                       rebar_pre_material, carbon_material, is_ck_not_cd)
+            f_i, m_i = innerstate_beam(
+                eps_ok_test,
+                eps_uk_test,
+                tverrsnitt,
+                moment,
+                material,
+                rebar_material,
+                rebar_pre_material,
+                carbon_material,
+                is_ck_not_cd,
+            )
             norm = np.sqrt(f_i**2 + m_i**2)
 
             if norm < best_norm:
@@ -159,12 +206,21 @@ def help_function_grid(
 
     return best_eps_ok, best_eps_uk
 
-def help_function_steepest(eps_ok: float, eps_uk: float, moment: float,
-                           tverrsnitt: Tverrsnitt, material: ConcreteMaterial = None,
-                           rebar_material: RebarMaterial = None, rebar_pre_material: RebarMaterial = None,
-                           carbon_material: CarbonMaterial = None, is_ck_not_cd: bool = True,
-                           steps=10) -> Tuple[float, float]:
+
+def help_function_steepest(
+    eps_ok: float,
+    eps_uk: float,
+    moment: float,
+    tverrsnitt: Tverrsnitt,
+    material: ConcreteMaterial = None,
+    rebar_material: RebarMaterial = None,
+    rebar_pre_material: RebarMaterial = None,
+    carbon_material: CarbonMaterial = None,
+    is_ck_not_cd: bool = True,
+    steps=10,
+) -> Tuple[float, float]:
     from tverrsnittsberegninger import innerstate_beam
+
     eps_ok_ = eps_ok
     eps_uk_ = eps_uk
     alpha = 0.001
@@ -178,11 +234,20 @@ def help_function_steepest(eps_ok: float, eps_uk: float, moment: float,
         eps_s_u: float = 0.02
         print("Warning: No rebar material provided, using default eps_s_u = 0.02")
 
-    prev_norm = float('inf')
+    prev_norm = float("inf")
 
     for _ in range(steps):
-        f_i, m_i = innerstate_beam(eps_ok_, eps_uk_, tverrsnitt, moment, material, rebar_material,
-                                   rebar_pre_material, carbon_material, is_ck_not_cd)
+        f_i, m_i = innerstate_beam(
+            eps_ok_,
+            eps_uk_,
+            tverrsnitt,
+            moment,
+            material,
+            rebar_material,
+            rebar_pre_material,
+            carbon_material,
+            is_ck_not_cd,
+        )
         norm = np.sqrt(f_i**2 + m_i**2)
 
         if norm > prev_norm:
@@ -190,10 +255,28 @@ def help_function_steepest(eps_ok: float, eps_uk: float, moment: float,
         prev_norm = norm
 
         # Numerical gradient
-        f_ok, m_ok = innerstate_beam(eps_ok_ + delta, eps_uk_, tverrsnitt, moment, material, rebar_material,
-                                     rebar_pre_material, carbon_material, is_ck_not_cd)
-        f_uk, m_uk = innerstate_beam(eps_ok_, eps_uk_ + delta, tverrsnitt, moment, material, rebar_material,
-                                     rebar_pre_material, carbon_material, is_ck_not_cd)
+        f_ok, m_ok = innerstate_beam(
+            eps_ok_ + delta,
+            eps_uk_,
+            tverrsnitt,
+            moment,
+            material,
+            rebar_material,
+            rebar_pre_material,
+            carbon_material,
+            is_ck_not_cd,
+        )
+        f_uk, m_uk = innerstate_beam(
+            eps_ok_,
+            eps_uk_ + delta,
+            tverrsnitt,
+            moment,
+            material,
+            rebar_material,
+            rebar_pre_material,
+            carbon_material,
+            is_ck_not_cd,
+        )
 
         grad_ok = (np.sqrt(f_ok**2 + m_ok**2) - norm) / delta
         grad_uk = (np.sqrt(f_uk**2 + m_uk**2) - norm) / delta
@@ -207,6 +290,7 @@ def help_function_steepest(eps_ok: float, eps_uk: float, moment: float,
         eps_uk_ = max(min(eps_uk_, eps_s_u), eps_cu_eff)
 
     return eps_ok_, eps_uk_
+
 
 def find_eps_carbon(eps_ok: float, eps_uk: float, tverrsnitt: Tverrsnitt) -> float:
     """Hjelpemetode for å finne tøyning i karbonfiber."""
@@ -233,7 +317,10 @@ def find_eps_carbon(eps_ok: float, eps_uk: float, tverrsnitt: Tverrsnitt) -> flo
         return 0.0
     return snitt_eps_karbon
 
-def get_moments_simply_supported_beam(q: float, length: float, num_points: int = 21, max_seg_length: float = 0.5) -> ndarray:
+
+def get_moments_simply_supported_beam(
+    q: float, length: float, num_points: int = 21, max_seg_length: float = 0.5
+) -> ndarray:
     """Hjelpemetode for å finne momentfordeling i en enkeltspennsbjelke med jevnt fordelt last."""
     division_number = max(num_points, int(length / max_seg_length))
     x_points = np.linspace(0, length, division_number)

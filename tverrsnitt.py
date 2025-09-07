@@ -1,8 +1,10 @@
 import numpy as np
 from numpy import ndarray
 
-class Tverrsnitt():
+
+class Tverrsnitt:
     """Klasse for å representere et tverrsnitt med tilhørende egenskaper."""
+
     def __init__(
         self,
         height: float | ndarray,
@@ -16,7 +18,7 @@ class Tverrsnitt():
         d_pre_bot: ndarray = np.array([]),
         d_pre_top: ndarray = np.array([]),
         a_carbon: ndarray = np.array([]),
-        d_carbon: ndarray = np.array([])
+        d_carbon: ndarray = np.array([]),
     ) -> None:
         self.height = height
         self.height_i = height if isinstance(height, float) else height[0]
@@ -31,6 +33,8 @@ class Tverrsnitt():
         self.d_pre_top = d_pre_top
         self.a_carbon = a_carbon
         self.d_carbon = d_carbon
+        self.kompakt_lengde: float = 0.0
+        self.kompakt_snitt: bool = False
 
     def get_height(self) -> float | ndarray:
         """Gir tilbake høyde (kan være vektor)"""
@@ -42,11 +46,13 @@ class Tverrsnitt():
             return self.height.max()
         return self.height
 
-    def set_height_i(self, i: int) -> None:
+    def set_height_for_snitt(self, i: int) -> None:
         """Setter hvilken høyde get_height_i henter verdi fra"""
         if isinstance(self.height, ndarray):
             if i >= len(self.height):
-                raise IndexError("Index i er utenfor rekkevidde for height-vektoren. Sjekk minstekrav i hjelpemetoder.py linje 236.")
+                raise IndexError(
+                    "Index i er utenfor rekkevidde for height-vektoren. Sjekk minstekrav i hjelpemetoder.py linje 236."
+                )
             self.height_i = self.height[i]
         else:
             self.height_i = self.height
@@ -59,44 +65,63 @@ class Tverrsnitt():
             self.height_i = self.height
 
     def get_height_i(self) -> float:
-        """ Gir høyden for satt snitt"""
+        """Gir høyden for satt snitt"""
         return self.height_i
 
     def get_width(self, height: float) -> float:
-        """ Gir tilbake bredde for en høyde, brukerdefinert funksjon"""
+        """Gir tilbake bredde for en høyde, brukerdefinert funksjon"""
         if callable(self.width):
+            if self.kompakt_snitt:
+                # Antar at bredden i bunn tilsvarer den kompakte lengden
+                return self.width(0)
             return self.width(height)
         return self.width
 
+    def get_kompakt_lengde(self) -> float:
+        """Gir kompakt lengde fra hver ende"""
+        return self.kompakt_lengde
+
+    def set_lengde_for_kompakt(self, length: float) -> None:
+        """Setter lengde fra opplegg hvor det kompakte tverrsnittet er"""
+        self.kompakt_lengde = length
+
+    def is_compact(self, state: bool = False) -> None:
+        """Endrer self.kompakt_snitt"""
+        self.kompakt_snitt = state
+
     def get_as_area_bot(self) -> ndarray:
+        """ Armeringsareal i UK pr lag. Slakkarmering"""
         return self.as_area_bot
 
     def get_as_area_top(self) -> ndarray:
+        """ Armeringsareal i OK pr lag. Slakkarmering"""
         return self.as_area_top
 
     def get_d_bot(self) -> ndarray:
-        return self.d_bot
+        """Returnerer avstand fra OK (overkant) til senter armering pr lag.
+        I tverrsnittet er det lagret avstander fra UK (underkant), så trekker fra høyden."""
+        return self.height_i - self.d_bot
 
     def get_d_top(self) -> ndarray:
         return self.d_top
 
     def get_d0_bot(self) -> float:
-        """ Gir tyngdepunktet til ytterste strekkmateriale"""
+        """Gir tyngdepunktet til ytterste strekkmateriale"""
         if len(self.d_pre_bot) == 0:
-            d_pre_bot = 0
+            d_pre_bot = 9999
         else:
             d_pre_bot = self.d_pre_bot[0]
 
         if len(self.d_bot) == 0:
-            d_bot_slakkarmering = 0
+            d_bot_slakkarmering = 9999
         else:
             d_bot_slakkarmering = self.d_bot[0]
 
         if len(self.d_carbon) == 0:
-            d_carbon = 0
+            d_carbon = 9999
         else:
             d_carbon = self.d_carbon[0]
-        return max(d_pre_bot, d_bot_slakkarmering, d_carbon)
+        return self.height_i - min(d_pre_bot, d_bot_slakkarmering, d_carbon)
 
     def get_d_top_avg(self) -> float:
         """UTEN KF. Returnerer tyngdepunktet av d for armeringen i OK (ikke bare ytterste laget)."""
@@ -126,7 +151,7 @@ class Tverrsnitt():
         if sum_area == 0:
             return 0.0
         d_avg_bot = d_area / sum_area
-        return d_avg_bot
+        return self.height_i - d_avg_bot
 
     def get_d_bot_avg_cf(self) -> float:
         """Returnerer tyngdepunktet av d for armeringen i UK (ikke bare ytterste laget)."""
@@ -144,7 +169,7 @@ class Tverrsnitt():
         if sum_area == 0:
             return 0.0
         d_avg_bot = d_area / sum_area
-        return d_avg_bot
+        return self.height_i - d_avg_bot
 
     def get_a_bot_sum(self) -> float:
         return np.sum(self.as_area_bot) + np.sum(self.a_pre_bot)
@@ -159,7 +184,7 @@ class Tverrsnitt():
         return self.a_pre_top
 
     def get_d_pre_bot(self) -> ndarray:
-        return self.d_pre_bot
+        return self.height_i - self.d_pre_bot
 
     def get_d_pre_top(self) -> ndarray:
         return self.d_pre_top
@@ -168,7 +193,7 @@ class Tverrsnitt():
         return self.a_carbon
 
     def get_d_carbon(self) -> ndarray:
-        return self.d_carbon
+        return self.height_i - self.d_carbon
 
     def __str__(self):
         return (

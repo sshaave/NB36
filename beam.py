@@ -13,6 +13,13 @@
      På grunn av programmet er satt opp for å ha strekksone kun i UK kan ikke kontinuerlige bjelker regnes på.
 
      For andre typer laster (punktlaster) må brukeren selv sette opp momentvektorene.
+
+     Svakheter og begrensninger: 
+     - Takler ikke strekk i OK -> vil aldri få pilhøyde
+     - Føroppspenning: input er aktiv kraft, tap av spennkraft må bruker ta hensyn til
+     - Føroppspenning: Delvis forblending er løst ved å senke beregningsmessig spennkraft i aktuelt snitt
+     - Kryp- og svinnverdier må brukeren gi
+     - Skjærkapasitet ikke kontrollert
 """
 import numpy as np
 from numpy import ndarray
@@ -34,16 +41,8 @@ def width_function(height_i: float, var_height: float = 0) -> float:
         height_i: betraktet høyde hvor bredde skal leses av
         height: total høyde på tverrsnittet for gitt snitt
     """
-    if height_i < 80:
-        return 320
-    if height_i < 220:
-        return 320 - 220 * (height_i - 80) / 140
-    if height_i < 220 + var_height:
-        return 100
-    if height_i < 220 + var_height + 50:
-        rel_height = height_i - (220 + var_height) # Må fikses
-        return 100 + 320 * rel_height / 50
-    return 420
+    return 0 # brukerdefinert
+
 
 if __name__ == "__main__":
     ### INPUT STARTER ###
@@ -54,14 +53,14 @@ if __name__ == "__main__":
     f_ck: float = 45                            # Betongkvalitet
     materialmodell = "Parabola"                 # kan velge mellom Parabola og Sargin (pass på)
     strekkfast_betong_SLS: bool = True          # Velg om strekkfasthet skal inkluderes for SLS-beregninger
-    betong: ConcreteMaterial = ConcreteMaterial(f_ck, materialmodell)
 
     # Definerer tverrsnitt. Høyde (total høyde) kan være en vektor og bredde kan være et tall eller en funksjon.
-    # For et I-tverrsnitt må totalhøyde være en vektor og bredde en funksjon av høyden
+    # For et I-tverrsnitt må totalhøyde være en vektor og bredde må være definert i width_function
     height = 450                                # Høyden må ha like mange datapunkt som momentvektoren
 
     # Bredde kan være et tall eller en funksjon (funksjon er nødvendig for I-tverrsnitt)
     width = 1000.                               # width = width_function er også et alternativ
+    kompakt_lengde = 1000                       # Lengde fra hvert opplegg med kompakt tverrsnitt (for SDT ol)
 
     # Antall snitt langs bjelken
     antall_punkter_standard: int = 11           # benyttes hvis høyde er ett tall. Kan endres på av bruker
@@ -71,40 +70,41 @@ if __name__ == "__main__":
     armeringskvalitet: str = "B500NC" # B400NC eller B500NC
     as_area_bot = np.array([5 * 64 * np.pi])    # 5 stk ø16
     as_area_top = np.array([5 * 64 * np.pi])    # 5 stk ø16
-    d_bot = np.array([389])                     # Måles fra OK betong
+    d_bot = np.array([61])                      # Måles fra UK betong
     d_top = np.array([61])                      # Måles fra OK betong
 
     # Definerer spennarmering. Kablene har areal på 100mm2
-    forspenningskraft: float = 20.               # Forspenningskraft i kN. Pass på, for mye forspenning gir forblending i evaluert snitt
-    antall_vektor_ok = np.array([0])
+    forspenningskraft: float = 20.              # Forspenningskraft i kN. Pass på, for mye forspenning gir forblending i evaluert snitt
+    antall_vektor_ok = np.array([0])            # For eksempel np.array([2])
     antall_vektor_uk = np.array([2])            # For eksempel np.array([4, 6, 4, 2])
-    d_pre_bot = np.array([410])                 # height - 80, height - 120, height - 160])
-    d_pre_top = np.array([40])
+    d_pre_bot = np.array([40])                  # Fra UK betong. For eksempel np.array([40, 80, 120])
+    d_pre_top = np.array([40])                  # Fra OK betong. For eksempel np.array([40, 80, 120])
+    print_forspenningskraft = True              # Rappoterer forblending eller redusert i kraft for å finne likevekt (strekk OK ikke implementert)
 
     # Definerer karbonfiber
-    # I eksempelet her er det valgt 50 mm bredde, 1.4 mm tykkelse, 1 på hver side -> 2 stk
-    a_carbon: ndarray =  np.array([])           # np.array([20 * 1.4 * 2])
-    d_carbon: ndarray = np.array([])            # np.array([height - 40])
+    a_carbon: ndarray =  np.array([])           # For eksempel np.array([50 * 1.2 * 2])
+    d_carbon: ndarray = np.array([])            # fra UK betong
 
-    # Linjelaster - bruker må legge inn evt egenvekt av bjelke
+    # Linjelaster - bruker må legge inn egenvekt av bjelke selv
     q_uls: float = 30                           # Linjelast i ULS
     q_sls: float = 6 + 11.25                    # Linjelast i SLS
     q_montering: float = 1                      # Linjelast i bjelke når fiber monteres
 
     # Svinntøyning og effektivt kryptall
     eps_svinn_promille: float = -0.0            # -0.01 eksempelverdi
-    eps_svinn: float = eps_svinn_promille / 1e3
+    eps_svinn: float = eps_svinn_promille / 1e3 # Gjør om fra promille
     creep_eff: float = 1.6                      # 1.61 eksempelverdi
+
+    
+    # Valfri input for momenter ved andre laster en UDL
+    moment_vector_uls: ndarray = get_moments_simply_supported_beam(q_uls, bjelkelengde, num_points=antall_punkter)
+    moment_vector_sls: ndarray = get_moments_simply_supported_beam(q_sls, bjelkelengde, num_points=antall_punkter)
+    # Momentverdier langs bjelken i det karbonfiberen monteres
+    moment_vector_montering: ndarray = get_moments_simply_supported_beam(q_montering, bjelkelengde, num_points=antall_punkter)
 
     #### INPUT FERDIG ####
 
     ### Initialisering ###
-
-    # Momentverdier langs bjelken i det karbonfiberen monteres
-    moment_vector_uls: ndarray = get_moments_simply_supported_beam(q_uls, bjelkelengde, num_points=antall_punkter)
-    moment_vector_sls: ndarray = get_moments_simply_supported_beam(q_sls, bjelkelengde, num_points=antall_punkter)
-    moment_vector_montering: ndarray = get_moments_simply_supported_beam(q_montering, bjelkelengde, num_points=antall_punkter)
-
     moment_max_uls: float = moment_vector_uls.max()
     m_max_montering: float = moment_vector_montering.max()
 
@@ -116,15 +116,20 @@ if __name__ == "__main__":
     assert len(a_carbon) == len(d_carbon), "Feil i input for karbonfiber. A- og d-vektor må være like lange"
 
     # Lager materialer hvis det er definert arealer og avstander er definert
+    # Betong
+    betong: ConcreteMaterial = ConcreteMaterial(f_ck, materialmodell)
     betong.set_creep(creep_eff)
     if not strekkfast_betong_SLS:
         betong.set_f_ctm_to_0()
+
+    # Slakkarmering
     if (sum(d_bot) > 0 and sum(as_area_bot) > 0) or (sum(d_top) > 0 and sum(as_area_top) > 0):
         armering: RebarMaterial = RebarB500NC() if armeringskvalitet == "B500NC" else RebarB400NC()
     else:
         armering, as_area_bot, as_area_top = None, np.array([]), np.array([])
         d_bot, d_top = np.array([]), np.array([])
 
+    # Spennarmering (føroppspent)
     if (sum(d_pre_bot) > 0 and sum(antall_vektor_uk) > 0) or (sum(d_pre_top) > 0 and sum(antall_vektor_ok) > 0):
         spennarmering: RebarMaterial = Tendon()
         spennarmering.set_fp(forspenningskraft)
@@ -134,6 +139,7 @@ if __name__ == "__main__":
         spennarmering, area_vector_ok, area_vector_uk = None, np.array([]), np.array([])
         d_pre_bot, d_pre_top = np.array([]), np.array([])
 
+    # Karbonfiber
     if sum(a_carbon) > 0 and sum(d_carbon) > 0:
         karbonfiber: CarbonMaterial = CarbonFiber()
     else:
@@ -150,8 +156,12 @@ if __name__ == "__main__":
                              a_pre_bot=area_vector_uk, d_pre_bot=d_pre_bot,
                              a_pre_top=area_vector_ok, d_pre_top=d_pre_top,
                              a_carbon=a_carbon, d_carbon=d_carbon)
+    
+    # For bjelker med kompakte ender
+    tverrsnitt.set_lengde_for_kompakt(kompakt_lengde)
 
     # -- Initialisering ferdig -- #
+
     # ---------- ULS ------------ #
 
     # Forenkler og bruker maksimal høyde for tverrsnittet og maks moment
@@ -163,7 +173,7 @@ if __name__ == "__main__":
                                                         spennarmering, is_ck_not_cd=is_ck_not_cd)
 
         eps_carbon = find_eps_carbon(eps_ok, eps_uk, tverrsnitt)
-        print(f"eps_carbon: {eps_carbon:.7f}")
+        print(f"Geometrisk tøyning ved høyden karbonfiberen monteres i, ved montasjelast: {eps_carbon:.7f}") # Karbonfiberen har 0 tøyning ved denne geometriske tøyningen
         karbonfiber.set_eps_s_0_state(eps_carbon)
 
     # Regner ut momentkapasitet i ULS (differanse i tverrsnitt og karbonfiber hensyntatt) med maks moment og største tverrsnittshøyde
@@ -181,7 +191,11 @@ if __name__ == "__main__":
 
      # ---------- SLS ------------ #
     print("--------------- SLS ---------------")
+
+    # Finner deformasjoner, kurvaturer, og rotasjoner
     curvatures, rotations, deflections, max_deflection = calc_deflection_with_curvatures(
         moment_vector_sls, moment_vector_montering, bjelkelengde, tverrsnitt, betong,
-        armering, spennarmering, karbonfiber, eps_svinn, True)
+        armering, spennarmering, karbonfiber, eps_svinn, True, print_forspenningskraft)
+    
+    # Printer største nedbøyning
     print(f"Største nedbøyning: {np.round(max_deflection, 2)} mm")

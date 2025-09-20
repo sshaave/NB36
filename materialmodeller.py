@@ -289,7 +289,7 @@ class ConcreteMaterial(Material):
         self.f_ctm: float = 0
         self.e_cm: float = 0
         self.p_r: float = 0.2
-        self.f_cm: float = 0
+        self.f_cm: float = self.f_ck - 8
         self.eps_cy: float = 0
         self.eps_cu: float = 0
         self.material_model = materialmodell
@@ -308,11 +308,12 @@ class ConcreteMaterial(Material):
 
     def get_stress(self, strain: float, is_ck_not_cd: bool = True) -> float:
         # Sargin er ikke klar for ULS, men det gjør ingenting for bjelker
-        eps_cy = self.eps_cy * (1 + self.creep_eff)
-        eps_cu = self.eps_cu * (1 + self.creep_eff)
+        f_ck_cd = self.f_cm if is_ck_not_cd else self.f_cd
+        creep_eff = self.creep_eff if is_ck_not_cd else 0
+        eps_cy = self.eps_cy * (1 + creep_eff)
+        eps_cu = self.eps_cu * (1 + creep_eff)
         if self.material_model == "Sargin":
             return sargin_mat_model(strain, eps_cy, eps_cu, self.e_cm, self.f_cm)
-        f_ck_cd = self.f_ck if is_ck_not_cd else self.f_cd
         return parabel_rektangel(strain, eps_cy, self.n, eps_cu, f_ck_cd)
 
     def change_material_model(self, material_model: str):

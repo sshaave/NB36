@@ -32,15 +32,15 @@ def integrate_cross_section(
     sum_mom = 0
     height_compression = height_total - height_ec_zero
 
-    iterations = 50
-    delta_eps = (eps_ok - eps_uk) / iterations
+    iterations = 70
+    delta_eps = (eps_ok - eps_uk) / height_total
     delta_h = height_compression / iterations
-    for i in range(1, iterations):
-        height_i = height_ec_zero + delta_h * i
+    for i in range(iterations):
+        height_i = height_ec_zero + delta_h * (i + 0.5)
         width_i = tverrsnitt.get_width(height_i)
         area_i = width_i * delta_h
 
-        eps_i = eps_uk + delta_eps * (i - 0.5)
+        eps_i = delta_eps * (delta_h * (i + 0.5))
         sigma_i = material.get_stress(eps_i, is_ck_not_cd=is_ck_not_cd)
         if sigma_i == 0 and eps_i != 0:
             print(f"eps_i: {eps_i}, sigma_i: {sigma_i}, height_i: {height_i}, delta_h: {delta_h}")
@@ -243,7 +243,7 @@ def section_integrator(
         # Betongen kan ta strekk
         eps_s_u_tension = min(eps_s_u_rebar, eps_s_u_tendon, eps_s_u_carbon)
         f_strekk_betong, d_strekk_betong = beregn_strekk_betong(
-            material, tverrsnitt, alpha_d, eps_uk, eps_s_u_tension)
+            material, tverrsnitt, alpha_d, eps_ok, eps_uk, eps_s_u_tension)
 
     # Summerer strekkbidragene
     sum_strekk = sum_f_strekk_armering + f_strekk_tendon + f_strekk_karbon + f_strekk_betong
@@ -259,10 +259,9 @@ def section_integrator(
     else:
         d_strekk_avg: float = 0
 
-    eps_c_uk = 0.0  # bøyning, strekk alltid i UK
     height_uk = height - alpha_d
     f_bet, d_alpha_d = integrate_cross_section(
-        eps_ok, eps_c_uk, height_uk, height, material, tverrsnitt, is_ck_not_cd)
+        eps_ok, eps_uk, height_uk, height, material, tverrsnitt, is_ck_not_cd)
     d_bet = alpha_d - d_alpha_d
 
     # Regner ut bidraget fra armering. Trykkmoment regnes om overkant

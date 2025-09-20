@@ -5,7 +5,7 @@ from tverrsnitt import Tverrsnitt
 from materialmodeller import ConcreteMaterial
 
 
-def beregn_strekk_betong(material: ConcreteMaterial, ts: Tverrsnitt, alpha_d: float, eps_uk: float, eps_s_u: float) -> Tuple[float, float]:
+def beregn_strekk_betong(material: ConcreteMaterial, ts: Tverrsnitt, alpha_d: float, eps_ok: float, eps_uk: float, eps_s_u: float) -> Tuple[float, float]:
     """Beregner strekkbidrag fra betongen i snittet. Returnerer kraft og posisjon."""
     # Forenklet modell med konstant strekkspenning i hele strekksonen
     height_snitt: float = ts.get_height_i()
@@ -15,16 +15,16 @@ def beregn_strekk_betong(material: ConcreteMaterial, ts: Tverrsnitt, alpha_d: fl
     eps_ctm: float = f_ctm / e_cm
     assert eps_uk > 0, "eps_uk må være positiv for å ha strekk i betongen"
 
-    iterations = 50
-    delta_eps: float = eps_uk / iterations
+    iterations = 70
+    delta_eps: float = (eps_uk - eps_ok) / height_snitt
     delta_h: float = height_tension / iterations
     sum_f, sum_mom = 0.0, 0.0
-    for i in range(1, iterations):
+    for i in range(iterations):
         height_i = delta_h * (i + 0.5)  # mm
         width_i = ts.get_width(height_i)
         area: float = delta_h * width_i
 
-        eps_i = delta_eps * (i - 0.5)
+        eps_i = delta_eps * height_i
         spenning: float = bilinear_tension_model(eps_i, e_cm, f_ctm, eps_ctm, eps_s_u)
         f_i = area * spenning
         sum_f += f_i
@@ -44,5 +44,5 @@ def bilinear_tension_model(eps: float, e_cm: float, f_ctm: float, eps_ctm: float
     if eps < eps_ctm:
         return e_cm * eps  # Lineær opp til f_ctm
     if eps < eps_s_u:
-        return f_ctm * (eps_s_u - eps) / (eps_s_u - eps_ctm)  # Lineær ned til 0 ved 2*eps_ctm
+        return f_ctm * (eps_s_u - eps) / (eps_s_u - eps_ctm)  # Lineær ned til 0 ved eps_s_u
     return 0.0

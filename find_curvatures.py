@@ -101,7 +101,7 @@ def find_curvatures(
 
         # Sjekker om konvergens ble funnet
         
-        if eps_ok == 0.0 and eps_uk == 0.0:
+        if eps_ok == 0.0 and eps_uk == 0.0 and tendon_material is not None and forspenning > 0:
             # Ingen konvergens.
             #  Forblender (setter forspenning til 0 og prøver igjen)
             for j in [0.8, 0.6, 0.4, 0.2, 0.1, 0.0]:

@@ -51,7 +51,7 @@ class Tverrsnitt:
         if isinstance(self.height, ndarray):
             if i >= len(self.height):
                 raise IndexError(
-                    "Index i er utenfor rekkevidde for height-vektoren. Sjekk minstekrav i hjelpemetoder.py linje 236."
+                    "Index i er utenfor rekkevidde for height-vektoren. Sjekk minstekrav i hjelpemetoder.py linje 321."
                 )
             self.height_i = self.height[i]
         else:
@@ -90,11 +90,11 @@ class Tverrsnitt:
         self.kompakt_snitt = state
 
     def get_as_area_bot(self) -> ndarray:
-        """ Armeringsareal i UK pr lag. Slakkarmering"""
+        """Armeringsareal i UK pr lag. Slakkarmering"""
         return self.as_area_bot
 
     def get_as_area_top(self) -> ndarray:
-        """ Armeringsareal i OK pr lag. Slakkarmering"""
+        """Armeringsareal i OK pr lag. Slakkarmering"""
         return self.as_area_top
 
     def get_d_bot(self) -> ndarray:

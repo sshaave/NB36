@@ -22,6 +22,7 @@
      - Skjærkapasitet ikke kontrollert
      - Kun jevnt fordelte laster lagt inn
 """
+import sys
 import numpy as np
 from numpy import ndarray
 from hjelpemetoder import calc_deflection_with_curvatures, find_eps_carbon, get_moments_simply_supported_beam
@@ -104,12 +105,15 @@ if __name__ == "__main__":
     moment_vector_montering: ndarray = get_moments_simply_supported_beam(q_montering, bjelkelengde, num_points=antall_punkter)
 
     #### INPUT FERDIG ####
+    # UTF-8 for å få med æøå
+    sys.stdout.reconfigure(encoding="utf-8")
 
     ### Initialisering ###
     moment_max_uls: float = moment_vector_uls.max()
     m_max_montering: float = moment_vector_montering.max()
 
     # Sjekker form på input
+    assert antall_punkter >= np.ceil(bjelkelengde / 0.5), "Bjelkesegmenter må være minst 0.5m. Endre antall punkter"
     assert len(as_area_bot) == len(d_bot), "Feil i input for vanlig armering UK. A- og d-vektor må være like lange"
     assert len(as_area_top) == len(d_top), "Feil i input for vanlig armering OK. A- og d-vektor må være like lange"
     assert len(antall_vektor_uk) == len(d_pre_bot), "Feil i input for spennarmering UK. A- og d-vektor må være like lange"
@@ -141,7 +145,7 @@ if __name__ == "__main__":
         d_pre_bot, d_pre_top = np.array([]), np.array([])
 
     # Karbonfiber
-    if sum(a_carbon) > 0 and sum(d_carbon) > 0:
+    if sum(a_carbon) > 0:
         karbonfiber: CarbonMaterial = CarbonFiber()
     else:
         karbonfiber, a_carbon, d_carbon = None, np.array([]), np.array([])
@@ -169,12 +173,18 @@ if __name__ == "__main__":
     tverrsnitt.set_height_to_max()
     # Finner likevekt i mest belastet snitt for å finne differansetøyning i bjelke og karbonfiber
     if karbonfiber is not None:
-        is_ck_not_cd: bool = True  # starter med bruks
         eps_ok, eps_uk, _, _ = find_equilibrium_strains(1000 * m_max_montering, betong, tverrsnitt, armering,
-                                                        spennarmering, is_ck_not_cd=is_ck_not_cd)
+                                                        spennarmering, is_ck_not_cd=True)
 
         eps_carbon = find_eps_carbon(eps_ok, eps_uk, tverrsnitt)
-        print(f"Geometrisk tøyning ved høyden karbonfiberen monteres i, ved montasjelast: {eps_carbon:.7f}") # Karbonfiberen har 0 tøyning ved denne geometriske tøyningen
+        if forspenningskraft > 0 and spennarmering is not None:
+            print(
+                f"Tøyning ved høyden karbonfiberen monteres i, ved montasjelast: {eps_carbon:.7f}"
+            )  # Karbonfiberen har 0 tøyning ved denne geometriske tøyningen
+        else:
+            print(
+                "Overhøyde pga spennkraft som programmet ikke takler. Setter tøyningen i midten av karbonfiber til 0."
+            )
         karbonfiber.set_eps_s_0_state(eps_carbon)
 
     # Regner ut momentkapasitet i ULS (differanse i tverrsnitt og karbonfiber hensyntatt) med maks moment og største tverrsnittshøyde
@@ -182,13 +192,16 @@ if __name__ == "__main__":
     alpha_uls, mom_kapasitet, eps_s, eps_c, z = integration_iterator_ultimate(
         tverrsnitt, betong, rebar_material=armering, rebar_pre_material=spennarmering,
         carbon_material=karbonfiber)
+    trykksonehoyde: float = alpha_uls * (height - d_carbon[0])
 
     # Printer resultater fra ULS-beregning
     print(f"Momentkapasitet: {mom_kapasitet/1e6:.1f} kNm, betongtøyning: {eps_c:.6f}, armeringstøyning: {eps_s:.6f}")
     if alpha_uls > 0.617:
-        print(f"Alpha: {alpha_uls:.3f} -> Overarmert tverrsnitt")
+        print(f"Alpha: {alpha_uls:.3f} -> Overarmert tverrsnitt. Trykksonehøyde: {trykksonehoyde:.1f}mm målt fra OK")
     else:
-        print(f"Alpha: {alpha_uls:.3f} -> Underarmert tverrsnitt")
+        print(f"Alpha: {alpha_uls:.3f} -> Underarmert tverrsnitt. Trykksonehøyde: {trykksonehoyde:.1f}mm målt fra OK")
+
+    print(f"Momentutnyttelse: {max(moment_vector_uls) / mom_kapasitet * 1e8:.2f}%")
 
      # ---------- SLS ------------ #
     print("--------------- SLS ---------------")

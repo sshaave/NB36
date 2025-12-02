@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
     # Antall snitt langs bjelken
     antall_punkter_standard: int = (
-        21  # benyttes hvis høyde er ett tall. Kan endres på av bruker
+        51  # benyttes hvis høyde er ett tall. Kan endres på av bruker
     )
     antall_punkter: int = (
         len(height) if isinstance(height, (list, ndarray)) else antall_punkter_standard
@@ -114,16 +114,16 @@ if __name__ == "__main__":
     d_top = np.array([])  # Måles fra OK betong
 
     # Definerer spennarmering. Kablene har areal på 100mm2
-    forspenningskraft: float = 0.750  # Forspenningskraft i kN. Pass på, for mye forspenning gir forblending i evaluert snitt
+    forspenningskraft: float = 75.0  # Forspenningskraft i kN. Pass på, for mye forspenning gir forblending i evaluert snitt
     antall_vektor_ok = np.array([0])  # For eksempel np.array([2])
     antall_vektor_uk = np.array([8])  # For eksempel np.array([4, 6, 4, 2])
     d_pre_bot = np.array([60])  # Fra UK betong. For eksempel np.array([40, 80, 120])
     d_pre_top = np.array([0])  # Fra OK betong. For eksempel np.array([40, 80, 120])
-    print_forspenningskraft = False  # Rappoterer forblending eller redusert i kraft for å finne likevekt (strekk OK ikke implementert)
+    print_forspenningskraft = True  # Rappoterer forblending eller redusert i kraft for å finne likevekt (strekk OK ikke implementert)
 
     # Definerer karbonfiber
-    a_carbon: ndarray = np.array([600])  # For eksempel np.array([50 * 1.2 * 2])
-    d_carbon: ndarray = np.array([-2.5])  # fra UK betong
+    a_carbon: ndarray = np.array([])  # For eksempel np.array([50 * 1.2 * 2])
+    d_carbon: ndarray = np.array([])  # fra UK betong
 
     # Linjelaster - bruker må legge inn egenvekt av bjelke selv
     q_uls: float = (5.28 + 3.72) * 1.2 + 9 * 1.5  # Linjelast i ULS
@@ -274,7 +274,10 @@ if __name__ == "__main__":
         rebar_pre_material=spennarmering,
         carbon_material=karbonfiber,
     )
-    trykksonehoyde: float = alpha_uls * (height - d_carbon[0])
+    if karbonfiber is not None:
+        trykksonehoyde: float = alpha_uls * (height - d_carbon[0])
+    else:
+        trykksonehoyde: float = alpha_uls * height
 
     # Printer resultater fra ULS-beregning
     print(

@@ -109,7 +109,7 @@ def evaluate_reinforcement_from_strain(
 
 def section_integrator(
     eps_ok: float,
-    eps_uk: float,
+    eps_s: float,
     tverrsnitt: Tverrsnitt,
     material: ConcreteMaterial,
     rebar_material: RebarMaterial,
@@ -143,12 +143,11 @@ def section_integrator(
         d_carbon_0 = d_carbon[0]
 
     d_0 = max(d_bot_0, d_pre_bot_0, d_carbon_0)
-    delta_eps: float = (eps_uk - eps_ok) / height
+    delta_eps: float = (eps_s - eps_ok) / d_0
 
     # Gjør om tøyninger i UK og OK til tøyning i ytterste armeringslag
-    eps_s = eps_uk - delta_eps * (height - d_0)  # Geometrisk tøyning i sone 0
-    eps_s_d0 = eps_s
-    alpha: float = min(max(-eps_ok / (eps_s_d0 - eps_ok), 0), 1)
+    eps_uk = eps_s + delta_eps * (height - d_0)  # Geometrisk tøyning i sone 0
+    alpha: float = min(max(-eps_ok / (eps_s - eps_ok), 0), 1)
     # if alpha in (0, 1):
     # Ugyldig verdi, feil i utregning
     #    print(f"feil i alpha: {alpha:.3f}. eps_ok: {eps_ok:.6f}, eps_uk: {eps_uk:.6f}")
@@ -432,9 +431,7 @@ def newton_optimize_eps_s(
         eps_s_cf = 99.0
 
     # Velger minste bruddtøyning som blir dimensjonerende // TODO! Hvis karbonfiber ligger mye høyere enn UK  armering så blir det potensielt krøll med maks tøyning
-    eps_s_u = (
-        min(eps_s_rebar, eps_s_pre, eps_s_cf) * 0.95
-    )  # 0.95 for å ikke stoppe iterasjonene direkte
+    eps_s_u = min(eps_s_rebar, eps_s_pre, eps_s_cf)
 
     while iterations <= max_iterations:
         iterations += 1

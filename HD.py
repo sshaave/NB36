@@ -119,11 +119,11 @@ if __name__ == "__main__":
     antall_vektor_uk = np.array([8])  # For eksempel np.array([4, 6, 4, 2])
     d_pre_bot = np.array([60])  # Fra UK betong. For eksempel np.array([40, 80, 120])
     d_pre_top = np.array([0])  # Fra OK betong. For eksempel np.array([40, 80, 120])
-    print_forspenningskraft = True  # Rappoterer forblending eller redusert i kraft for å finne likevekt (strekk OK ikke implementert)
+    print_forspenningskraft = False  # Rappoterer forblending eller redusert i kraft for å finne likevekt (strekk OK ikke implementert)
 
     # Definerer karbonfiber
-    a_carbon: ndarray = np.array([500])  # For eksempel np.array([50 * 1.2 * 2])
-    d_carbon: ndarray = np.array([-5])  # fra UK betong
+    a_carbon: ndarray = np.array([])  # For eksempel np.array([50 * 1.2 * 2])
+    d_carbon: ndarray = np.array([])  # fra UK betong
 
     # Linjelaster - bruker må legge inn egenvekt av bjelke selv
     q_uls: float = (5.28 + 3.72) * 1.2 + 9 * 1.5  # Linjelast i ULS

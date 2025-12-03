@@ -213,7 +213,7 @@ class Tendon(RebarMaterial):
     """Spennarmering Y1860S7, flytspenning 1860, 7 strands"""
 
     def __init__(self) -> None:
-        self.f_yk = 1700  # N/mm2 = MPa
+        self.f_yk = 1550  # N/mm2 = MPa
         self.gamma = 1.15
         self.e_s = 195000
         self.f_yd = self.f_yk / self.gamma
@@ -278,6 +278,7 @@ class Tendon(RebarMaterial):
     def get_max_external_strain(self) -> float:
         """Regn ut maks tilleggstøyning etter forspenning er satt på"""
         return self.eps_s_u - self.eps_0
+        
 
 
 class ConcreteMaterial(Material):

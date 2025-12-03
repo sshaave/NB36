@@ -122,8 +122,8 @@ if __name__ == "__main__":
     print_forspenningskraft = True  # Rappoterer forblending eller redusert i kraft for å finne likevekt (strekk OK ikke implementert)
 
     # Definerer karbonfiber
-    a_carbon: ndarray = np.array([])  # For eksempel np.array([50 * 1.2 * 2])
-    d_carbon: ndarray = np.array([])  # fra UK betong
+    a_carbon: ndarray = np.array([500])  # For eksempel np.array([50 * 1.2 * 2])
+    d_carbon: ndarray = np.array([-5])  # fra UK betong
 
     # Linjelaster - bruker må legge inn egenvekt av bjelke selv
     q_uls: float = (5.28 + 3.72) * 1.2 + 9 * 1.5  # Linjelast i ULS
@@ -277,7 +277,7 @@ if __name__ == "__main__":
     if karbonfiber is not None:
         trykksonehoyde: float = alpha_uls * (height - d_carbon[0])
     else:
-        trykksonehoyde: float = alpha_uls * height
+        trykksonehoyde: float = alpha_uls * 230
 
     # Printer resultater fra ULS-beregning
     print(

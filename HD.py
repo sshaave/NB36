@@ -122,13 +122,15 @@ if __name__ == "__main__":
     print_forspenningskraft = False  # Rappoterer forblending eller redusert i kraft for å finne likevekt (strekk OK ikke implementert)
 
     # Definerer karbonfiber
-    a_carbon: ndarray = np.array([])  # For eksempel np.array([50 * 1.2 * 2])
-    d_carbon: ndarray = np.array([])  # fra UK betong
+    a_carbon: ndarray = np.array([500])  # For eksempel np.array([50 * 1.2 * 2])
+    d_carbon: ndarray = np.array([-2.5])  # fra UK betong
 
     # Linjelaster - bruker må legge inn egenvekt av bjelke selv
-    q_uls: float = (5.28 + 3.72) * 1.2 + 9 * 1.5  # Linjelast i ULS
-    q_sls: float = (5.28 + 3.72) + 9 * 0.7  # Linjelast i SLS
-    q_montering: float = 2  # Linjelast i bjelke når fiber monteres
+    egenlast = 5.28 + 3.72
+    nyttelast = 19.4 * 1.2
+    q_uls: float = egenlast * 1.2 + nyttelast * 1.5  # Linjelast i ULS
+    q_sls: float = egenlast + nyttelast * 0.8  # Linjelast i SLS
+    q_montering: float = egenlast  # Linjelast i bjelke når fiber monteres
 
     # Svinntøyning og effektivt kryptall
     eps_svinn_promille: float = -0.0  # -0.01 eksempelverdi

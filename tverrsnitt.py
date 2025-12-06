@@ -195,6 +195,22 @@ class Tverrsnitt:
     def get_d_carbon(self) -> ndarray:
         return self.height_i - self.d_carbon
 
+    def get_d_0_tension(self) -> float:
+        if self.get_d_bot() is None or len(self.get_d_bot()) == 0:
+            d_bot_0 = 0
+        else:
+            d_bot_0 = self.get_d_bot()[0]
+        if self.get_d_pre_bot() is None or len(self.get_d_pre_bot()) == 0:
+            d_pre_bot_0 = 0
+        else:
+            d_pre_bot_0 = self.get_d_pre_bot()[0]
+        if self.get_d_carbon() is None or len(self.get_d_carbon()) == 0:
+            d_carbon_0 = 0
+        else:
+            d_carbon_0 = self.get_d_carbon()[0]
+
+        return max(d_bot_0, d_pre_bot_0, d_carbon_0)
+
     def __str__(self):
         return (
             f"Tverrsnitt:\n"

@@ -9,6 +9,18 @@ from find_curvatures import find_curvatures
 from tverrsnitt import Tverrsnitt
 
 
+def eps_ok_and_eps_uk_to_eps_ok_s(
+    eps_ok: float, eps_uk: float, tverrsnitt: Tverrsnitt
+) -> Tuple[float, float]:
+    """Gjør om eps_c og eps_s til tøyninger i ok og uk"""
+    height = tverrsnitt.get_height_i()
+    d_0 = tverrsnitt.get_d_0_tension()
+    delta_eps: float = (eps_uk - eps_ok) / height
+    eps_s = eps_uk - delta_eps * (height - d_0)
+
+    return eps_ok, eps_s
+
+
 def eps_c_and_eps_s_to_eps_ok_uk(
     eps_c: float, eps_s: float, height: float, d0_strekk: float
 ) -> Tuple[float, float]:

@@ -15,6 +15,7 @@ from materialmodeller import (
     Tendon,
 )
 from hjelpemetoder import (
+    eps_ok_and_eps_uk_to_eps_ok_s,
     eps_c_and_eps_s_to_eps_ok_uk,
     help_function_grid,
     help_function_steepest,
@@ -129,20 +130,8 @@ def section_integrator(
     a_pre_bot, a_pre_top = tverrsnitt.get_a_pre_bot(), tverrsnitt.get_a_pre_top()
     d_carbon, a_carbon = tverrsnitt.get_d_carbon(), tverrsnitt.get_a_carbon()
 
-    if d_bot is None or len(d_bot) == 0:
-        d_bot_0 = 0
-    else:
-        d_bot_0 = d_bot[0]
-    if d_pre_bot is None or len(d_pre_bot) == 0:
-        d_pre_bot_0 = 0
-    else:
-        d_pre_bot_0 = d_pre_bot[0]
-    if d_carbon is None or len(d_carbon) == 0:
-        d_carbon_0 = 0
-    else:
-        d_carbon_0 = d_carbon[0]
-
-    d_0 = max(d_bot_0, d_pre_bot_0, d_carbon_0)
+    # henter d for ytterste strekkmateriale (armering, spenntau, karbonfiber)
+    d_0 = tverrsnitt.get_d_0_tension()
     delta_eps: float = (eps_s - eps_ok) / d_0
 
     # Gjør om tøyninger i UK og OK til tøyning i ytterste armeringslag
@@ -665,12 +654,13 @@ def innerstate_beam(
     is_ck_not_cd: bool,
 ) -> Tuple[float, float]:
     """Henter indre krefter for et tverrsnitt"""
+    eps_ok, eps_s = eps_ok_and_eps_uk_to_eps_ok_s(eps_ok, eps_uk, tverrsnitt)
     if eps_ok == 0.0 and eps_uk == 0.0:
         # Hvis ingen tøyninger, returner 0 krefter
         return 0.0, -moment
     _alpha, f_trykk, f_strekk, z_arm = section_integrator(
         eps_ok,
-        eps_uk,
+        eps_s,
         tverrsnitt,
         material,
         rebar_material,

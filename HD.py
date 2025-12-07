@@ -257,7 +257,7 @@ if __name__ == "__main__":
         )
 
         eps_carbon = find_eps_carbon(eps_ok, eps_uk, tverrsnitt)
-        if forspenningskraft > 0 and spennarmering is not None:
+        if forspenningskraft > 0 and spennarmering is not None and eps_carbon != 0:
             print(
                 f"Tøyning ved høyden karbonfiberen monteres i, ved montasjelast: {eps_carbon:.7f}"
             )  # Karbonfiberen har 0 tøyning ved denne geometriske tøyningen
